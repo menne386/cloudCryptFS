@@ -1,0 +1,1 @@
+"C:\Program Files\Dokan\Dokan Library-1.1.0\dokanctl.exe" /u x

@@ -1,0 +1,2 @@
+#!/bin/bash 
+make -j5 && ./GDriveCrypt test && ls -la test && ls -la test/dir && sleep 5 && fusermount -u test

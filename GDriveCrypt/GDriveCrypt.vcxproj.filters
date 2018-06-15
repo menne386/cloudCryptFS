@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Modules">
+      <UniqueIdentifier>{9ccfff98-5763-4d5c-86d5-4433ed136236}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Modules\config">
+      <UniqueIdentifier>{457fc53f-402a-4e37-af2d-dc9284b3f95a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Modules\crypto">
+      <UniqueIdentifier>{25fe2fc1-fa68-4427-961b-500288597a14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Modules\filesystem">
+      <UniqueIdentifier>{07523caa-9052-4d60-ae5d-008e88a64350}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Modules\script">
+      <UniqueIdentifier>{ff2ea78c-a8f5-4894-ad35-5d19945d7bb0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Modules\services">
+      <UniqueIdentifier>{ca23abb5-f92a-494d-a5c0-3b961aa08c2c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Modules\util">
+      <UniqueIdentifier>{82867b87-9e7d-438f-a091-835f3c6ad338}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\fuse_main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\crypto\block.cpp">
+      <Filter>Source Files\Modules\crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\crypto\key.cpp">
+      <Filter>Source Files\Modules\crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\crypto\sha256.cpp">
+      <Filter>Source Files\Modules\crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\bucket.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\chunk.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\file.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\fs.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\hash.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\console.cpp">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\files.cpp">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\shared_recursive_mutex.cpp">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\str.cpp">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\services\serviceHandler.cpp">
+      <Filter>Source Files\Modules\services</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\script\lexer.cpp">
+      <Filter>Source Files\Modules\script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\script\script_complex.cpp">
+      <Filter>Source Files\Modules\script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\bucketaccounting.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\inode.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\crypto\protocol.cpp">
+      <Filter>Source Files\Modules\crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\endian.cpp">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\buildn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\locks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\modules\filesystem\hashbucket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\modules\util\atomic_shared_ptr_list.h">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\modules\util\protected_unordered_map.h">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="GDriveCrypt.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

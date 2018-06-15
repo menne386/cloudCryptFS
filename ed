@@ -1,0 +1,4 @@
+git pull 
+git status
+kdevelop -s gdrivecrypt -p gdrivecrypt.kdev4 > /dev/null 2>/dev/null &
+#konsole --hide-menubar --profile VimLBZ  

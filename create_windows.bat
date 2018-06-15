@@ -1,0 +1,1 @@
+x64\Release\GDriveCrypt.exe --pass menne --loglevel 10 --src f:crypt/ --create yes

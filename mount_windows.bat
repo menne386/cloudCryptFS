@@ -1,0 +1,1 @@
+x64\Release\GDriveCrypt.exe --pass menne --src f:crypt/ X: 
