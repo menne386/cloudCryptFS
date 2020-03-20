@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
 		libsodium23 \
 		libtest-harness-perl \
     gdb \
+    xxd \
 && mkdir /output \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
