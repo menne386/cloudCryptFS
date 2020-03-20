@@ -11,7 +11,7 @@ namespace util {
 	 * @todo write docs
 	 */
 	bool MKDIR(const str & path);
-	bool fileExists(const str & name);
+	bool fileExists(const str & name, size_t * size=nullptr);
 	str getSystemString(const str & path, uint64_t offset = 0);
 	void putSystemString(const str & path,const str & content,uint64_t offset = 0);
 

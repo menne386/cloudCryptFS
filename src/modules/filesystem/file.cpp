@@ -585,7 +585,7 @@ my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
 			}
 		}
 	} catch(std::exception & e) {
-		FS->srvWARNING("t_file::read: ERROR ",e.what());
+		FS->srvERROR("t_file::read: ERROR ",e.what());
 		return 0;
 	}
 	
@@ -881,6 +881,8 @@ bool file::close(void) {
 		if(rest()) {
 			FS->unloadBuckets();
 			return true;
+		} else {
+			storeHashes();//Always store hashes on close
 		}
 	}
 	return false;

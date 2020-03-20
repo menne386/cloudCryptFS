@@ -10,6 +10,7 @@
 #include "modules/crypto/protocol.h"
 #include "modules/util/files.h"
 #include "modules/util/endian.h"
+#include "fs.h"
 using namespace filesystem;
 
 //protect bucket with mutex
@@ -43,7 +44,7 @@ void bucket::loadHashes(void) {
 		crypto::block b(_key,_protocol,cipher,crypto::blockInput::CIPHERTEXT_IV);
 		auto cleartext = b.getClearText();
 		if(cleartext.empty()) {
-			throw std::logic_error(str("Failed to decrypt "+filename).c_str());
+			throw std::logic_error(str("Failed to decrypt hashes in"+filename).c_str());
 		}
 		if(cleartext.size()!=byteSizeHashes) {
 			CLOG(cleartext.size(),"!=",byteSizeHashes);
@@ -104,7 +105,7 @@ void bucket::loadChunks(void) {
 		crypto::block b(_key,_protocol,cipher,crypto::blockInput::CIPHERTEXT_IV);
 		auto cleartext = b.getClearText();
 		if(cleartext.empty()) {
-			throw std::logic_error(str("Failed to decrypt "+filename).c_str());
+			throw std::logic_error(str("Failed to decrypt chunks in "+filename).c_str());
 		}
 		if(cleartext.size()!=byteSizeChunks) {
 			throw std::out_of_range(str("failed to load chunks from "+filename).c_str());
@@ -219,9 +220,10 @@ void bucket::store(void) {
 		if(changesSinceLoad==0 && newRefListHash == hashOfRefs.load()) {
 			return;
 		}
+		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
 		crypto::sha256sum emptyHsh(nullptr,0);
 		//CLOG("bucket::store: ",filename);
-		str cleartext,cleartextH;
+		str cleartext,cleartextH,cipher,cipherH;
 		
 		cleartext.resize(byteSizeChunks);
 		_ASSERT(cleartext.size()==byteSizeChunks);
@@ -229,29 +231,33 @@ void bucket::store(void) {
 		cleartextH.resize(byteSizeHashes);
 		_ASSERT(cleartextH.size()==byteSizeHashes);
 		
-		_ASSERT(hashesLoaded || chunksLoaded);
-
-		if (!hashesLoaded) { loadHashes(); }
-		if (!chunksLoaded) { loadChunks(); }
-
-		_ASSERT(chunks.size() == chunksInBucket);
-		_ASSERT(hashes.size() == chunksInBucket);
+		_ASSERT(hashesLoaded!=0);
 		
-		auto * ptr = reinterpret_cast<uint8_t*>(&cleartext[0]);
-		for(auto & L:chunks) {
-			auto cptr = atomic_load(&L);
-			if(storeFilter) {
-				auto i = storeFilter(cptr);
-				i->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
-			}else {
-				cptr->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
+		if(chunksLoaded ==0 ) {loadChunks();} //@todo: it SHOULD be possible to loose this shit....
+
+		_ASSERT(hashes.size() == chunksInBucket);
+
+		//
+		if(chunksLoaded || util::fileExists(filename)==false) {
+			if(chunksLoaded) {
+				auto * ptr = reinterpret_cast<uint8_t*>(&cleartext[0]);
+				for(auto & L:chunks) {
+					auto cptr = atomic_load(&L);
+					if(storeFilter) {
+						auto i = storeFilter(cptr);
+						i->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
+					}else {
+						cptr->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
+					}
+					ptr+=chunkSize;
+				}
 			}
-			ptr+=chunkSize;
+			
+			crypto::block b(_key,_protocol,cleartext,crypto::blockInput::CLEARTEXT_STOREIV );
+			_ASSERT(cleartext.empty());
+			cipher = b.getCipherText();
+			_ASSERT(cipher.empty()==false);
 		}
-		crypto::block b(_key,_protocol,cleartext,crypto::blockInput::CLEARTEXT_STOREIV );
-		_ASSERT(cleartext.empty());
-		auto cipher = b.getCipherText();
-		_ASSERT(cipher.empty()==false);
 		
 		//CLOG("bucket::store_hashes: ",filename);
 		auto * hptr = reinterpret_cast<serializedHash*>(&cleartextH[0]);
@@ -278,7 +284,19 @@ void bucket::store(void) {
 		auto cipher2 = b2.getCipherText();
 		_ASSERT(cipher2.empty()==false);
 		
-		util::putSystemString(filename,cipher+cipher2);
+		if(cipher.empty()) {
+			size_t S = 0;
+			_ASSERT(util::fileExists(filename,&S) && S == byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead);
+			FS->srvDEBUG("Storing hashes in: ",filename);
+			util::putSystemString(filename,cipher2,byteSizeChunks+byteSizeEncryptionOverhead);
+			_ASSERT(cipher2.size()==byteSizeHashes+byteSizeEncryptionOverhead);
+			_ASSERT(util::fileExists(filename,&S) && S == byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead);
+		} else {
+			FS->srvDEBUG("Storing chunks+hashes in: ",filename);
+			_ASSERT(cipher.size()==byteSizeChunks+byteSizeEncryptionOverhead);
+			_ASSERT(cipher2.size()==byteSizeHashes+byteSizeEncryptionOverhead);
+			util::putSystemString(filename,cipher+cipher2);
+		}
 
 		//CLOG("bucket::store_end: ",filename);
 		changesSinceLoad = 0;

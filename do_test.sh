@@ -3,7 +3,6 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-rm -f /srv/log.txt
 
 
 echo '/output/core.%h.%e.%t' > /proc/sys/kernel/core_pattern
@@ -13,8 +12,9 @@ ulimit -c unlimited
 
 
 echo "creating:"
-./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes >/dev/null || exit 1 
+./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes --log-level 10  > /output/create_log.txt || exit 1 
 
+rm -f /srv/log.txt
 #echo "mounting:"
 #./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt || exit 1
 
@@ -42,7 +42,9 @@ if [[ "$@" == "create_read" ]]; then
 elif [[ "$@" == "dedup" ]]; then
 		cp /testfile1 /bigfile /mnt -v
 		mkdir /mnt/test
+		sleep 6
 		cp /testfile2 /bigfile /mnt/test -v
+		sleep 6
 else
 		prove -e bash -r /tests/$@ 
 fi

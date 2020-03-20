@@ -346,6 +346,8 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		std::copy(metaString.begin(),metaString.end(),&metaChunk->as<inode_ctd>()->charContent[0]);
 		storeInode(rootChunk);
 		storeInodeCtd(metaChunk);
+		metaBuckets->getBucket(1)->store();
+		buckets->getBucket(1)->store();
 	} else {
 		//Load existing filesystem
 		if(!foundFileSystem) {

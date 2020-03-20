@@ -21,9 +21,12 @@ bool util::MKDIR(const str & path) {
 
 }
 
-bool util::fileExists(const str & name) {
+bool util::fileExists(const str & name,size_t * size) {
 	struct stat buffer;
 	if(stat(name.c_str(),&buffer) == 0) {
+		if(size) {
+			*size = buffer.st_size;
+		}
 		return true;
 	}
 	return false;
@@ -47,8 +50,10 @@ void util::putSystemString(const str & fname, const str & content,uint64_t offse
 	if(F.is_open()) {
 		if(offset) {
 			F.seekp(offset);
+			_ASSERT(F.tellp()==(long int)offset);
 		}
 		F.write(content.data(),content.size());
+		F.flush();
 	} else {
 		CLOG("Failed to write to file ",fname);
 	}
