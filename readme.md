@@ -25,10 +25,11 @@ The idea is that it would allow syncing the blocks to cloud storage, without rev
 
 ## Ideas:
 
-..* MFA
-...qrencode -o- -d 300 -s 10 "otpauth://totp/YOUR_IDENTIFICATION?secret=YOUR_SECRET" | display
-...https://github.com/google/google-authenticator/wiki/Key-Uri-Format
-...https://blog.trezor.io/why-you-should-never-use-google-authenticator-again-e166d09d4324
+- MFA
+
+   qrencode -o- -d 300 -s 10 "otpauth://totp/YOUR_IDENTIFICATION?secret=YOUR_SECRET" | display
+   https://github.com/google/google-authenticator/wiki/Key-Uri-Format
+   https://blog.trezor.io/why-you-should-never-use-google-authenticator-again-e166d09d4324
 
 
 ## Bugs:
@@ -38,5 +39,6 @@ The idea is that it would allow syncing the blocks to cloud storage, without rev
 ## Weakness:
 
 - All metadata is protected by the 1st stage key, wich is derived from the password with argon2
-...Should implement key-file, so that all keys are a combination of a key-file and a password.
+
+   Should implement key-file, so that all keys are a combination of a key-file and a password.
 
