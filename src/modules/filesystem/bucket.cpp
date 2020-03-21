@@ -4,7 +4,6 @@
 #include "bucket.h"
 #include "chunk.h"
 #include "main.h"
-#include <fstream>
 #include <mutex>
 
 #include "modules/crypto/protocol.h"
