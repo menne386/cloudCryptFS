@@ -438,7 +438,11 @@ void file::loadHashes(void) {
 				FS->srvERROR("Failed to read directory file for:",path);
 			}
 			FS->srvDEBUG("directory: ",content, " from: ",path);
-			directory->unserialize(content);
+			try{
+				directory->unserialize(content);
+			} catch(std::exception & e) {
+				FS->srvERROR("Failed to unserialize directory file for:",path," error: ",e.what());
+			}
 		}
 	}
 	
