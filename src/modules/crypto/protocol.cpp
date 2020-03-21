@@ -224,8 +224,13 @@ class protocol : public protocolInterface {
 	}
 	void decrypt(shared_ptr<key> k,const str & in, str & out) {
 		str cipher = in.substr(0,in.size()-IVSize);
+		
 		//split out the IV:
 		const str ivdta = in.substr(in.size()-IVSize);
+		auto * tst = reinterpret_cast<const uint64_t *>(ivdta.data());
+		if(*tst == 0) {
+			throw std::logic_error("Too many zero's in IV");
+		}
 		_ASSERT(cipher.size()>0);
 		out.resize(	cipher.size());
 		
