@@ -39,8 +39,7 @@ void bucket::loadHashes(void) {
 	const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
 	auto cipher = util::getSystemString(filename,byteSizeChunks+byteSizeEncryptionOverhead);
 	if(cipher.empty()==false) {
-		//cipher = cipher.substr(byteSizeChunks+crypto::block::ivSize()+crypto::TAG_SIZE);
-		//CLOG("bucket::loadHashes: ",filename," s:",cipher.size());
+		_ASSERT(cipher.size()==byteSizeHashes+byteSizeEncryptionOverhead);
 		crypto::block b(_key,_protocol,cipher,crypto::blockInput::CIPHERTEXT_IV);
 		auto cleartext = b.getClearText();
 		if(cleartext.empty()) {
@@ -100,7 +99,9 @@ void bucket::loadChunks(void) {
 	if(cipher.empty()==false) {
 		//CLOG("bucket::loadChunks: ",filename);
 		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
-		cipher = cipher.substr(0,byteSizeChunks+byteSizeEncryptionOverhead);
+		const auto byteSizeEncryptedContent = byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead;
+		_ASSERT(cipher.size()==byteSizeEncryptedContent);
+		cipher.resize(byteSizeChunks+byteSizeEncryptionOverhead);
 		
 		crypto::block b(_key,_protocol,cipher,crypto::blockInput::CIPHERTEXT_IV);
 		auto cleartext = b.getClearText();
@@ -221,6 +222,7 @@ void bucket::store(void) {
 			return;
 		}
 		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
+		const auto byteSizeEncryptedContent = byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead;
 		crypto::sha256sum emptyHsh(nullptr,0);
 		//CLOG("bucket::store: ",filename);
 		str cleartext,cleartextH,cipher,cipherH;
@@ -233,7 +235,8 @@ void bucket::store(void) {
 		
 		_ASSERT(hashesLoaded!=0);
 		
-		if(chunksLoaded ==0 ) {loadChunks();} //@todo: it SHOULD be possible to loose this shit....
+		//if(chunksLoaded ==0 ) {loadChunks();} //@todo: it SHOULD be possible to loose this shit....
+		
 
 		_ASSERT(hashes.size() == chunksInBucket);
 
@@ -250,7 +253,9 @@ void bucket::store(void) {
 						cptr->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
 					}
 					ptr+=chunkSize;
-				}
+				} 
+			} else {
+				FS->srvWARNING("Writing hashes without chunks to: ",filename);					
 			}
 			
 			crypto::block b(_key,_protocol,cleartext,crypto::blockInput::CLEARTEXT_STOREIV );
@@ -284,18 +289,19 @@ void bucket::store(void) {
 		auto cipher2 = b2.getCipherText();
 		_ASSERT(cipher2.empty()==false);
 		
+		size_t S = 0;
 		if(cipher.empty()) {
-			size_t S = 0;
-			_ASSERT(util::fileExists(filename,&S) && S == byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead);
+			_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);
 			FS->srvDEBUG("Storing hashes in: ",filename);
 			util::putSystemString(filename,cipher2,byteSizeChunks+byteSizeEncryptionOverhead);
 			_ASSERT(cipher2.size()==byteSizeHashes+byteSizeEncryptionOverhead);
-			_ASSERT(util::fileExists(filename,&S) && S == byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead);
+			_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);
 		} else {
 			FS->srvDEBUG("Storing chunks+hashes in: ",filename);
 			_ASSERT(cipher.size()==byteSizeChunks+byteSizeEncryptionOverhead);
 			_ASSERT(cipher2.size()==byteSizeHashes+byteSizeEncryptionOverhead);
 			util::putSystemString(filename,cipher+cipher2);
+			_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);
 		}
 
 		//CLOG("bucket::store_end: ",filename);
