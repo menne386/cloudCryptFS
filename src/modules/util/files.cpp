@@ -44,17 +44,25 @@ str util::getSystemString(const str & fname,uint64_t offset) {
 	return "";
 }
 
-void util::putSystemString(const str & fname, const str & content,uint64_t offset) {
+void util::putSystemString(const str & fname, const str & content) {
 	std::ofstream F;
 	F.open(fname.c_str(),std::ios::binary|std::ios::out);
 	if(F.is_open()) {
-		if(offset) {
-			F.seekp(offset);
-			_ASSERT(F.tellp()==(long int)offset);
-		}
 		F.write(content.data(),content.size());
-		F.flush();
 	} else {
 		CLOG("Failed to write to file ",fname);
+	}
+}
+void util::replaceIntoSystemString(const str & path,const str & content,uint64_t offset) {
+	std::fstream F;
+	F.open(path.c_str(),std::ios::binary|std::ios::out|std::ios::in);
+	if(F.is_open()) {
+		if(offset) {
+			F.seekp(offset);
+			_ASSERT((uint64_t)F.tellp()==offset);
+		}
+		F.write(content.data(),content.size());
+	} else {
+		CLOG("Failed to replace into file ",path);
 	}
 }
