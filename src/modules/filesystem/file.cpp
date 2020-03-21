@@ -869,7 +869,10 @@ void file::writeDirectory(void) {
 		}
 		truncate(content.size());
 	}
-	rest();
+	if(!rest()) {
+		storeHashes();
+	}
+	
 }
 
 void file::open(void) {
