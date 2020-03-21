@@ -8,6 +8,7 @@
 
 #include "key.h"
 #include "protocol.h"
+#include <modules/filesystem/fs.h>
 
 using namespace crypto;
 
@@ -65,28 +66,28 @@ str block::getClearText() {
 bool block::setEncrypted(bool iencrypted) {
 	if(iencrypted != _encrypted) {
 		//move the original
-		str original = std::move(_data);
+		str newData;
 		if(iencrypted) {
 			//_data to ciphertext
 			try	{
-				_protocol->encrypt(_key,original,_data);	
+				_protocol->encrypt(_key,_data,newData);	
 			} catch( std::exception const & e )	{
 				//_data = std::move(original);
-				CLOG("Encryption error: ",e.what());
+				FS->srvERROR("Encryption error: ",e.what());
 				return false;
 			}
 			
 		} else {
 			//_data to plaintext
 			try {
-				_protocol->decrypt(_key,original,_data);
+				_protocol->decrypt(_key,_data,newData);
 			} catch( std::exception const & e )	{
-				_data = std::move(original);
-				CLOG("Decryption error: ",e.what());
+				FS->srvERROR("Decryption error: ",e.what());
 				return false;
 			}
 		}
-
+		
+		_data = std::move(newData);
 		_encrypted = iencrypted;
 		return true;
 	}
