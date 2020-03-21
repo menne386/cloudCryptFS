@@ -121,6 +121,9 @@ elif [[ "$@" == "dedup" ]]; then
 
 fi
 
+touch /srv/decrypt_fail
+cp /srv/decrypt_fail $OUTPUT
+
 grep "ERROR" /srv/log.txt
 grep "WARNING" /srv/log.txt
 
