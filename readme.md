@@ -25,7 +25,7 @@ The idea is that it would allow syncing the blocks to cloud storage, without rev
 
 ## Ideas:
 
-- MFA
+..* MFA
 ...qrencode -o- -d 300 -s 10 "otpauth://totp/YOUR_IDENTIFICATION?secret=YOUR_SECRET" | display
 ...https://github.com/google/google-authenticator/wiki/Key-Uri-Format
 ...https://blog.trezor.io/why-you-should-never-use-google-authenticator-again-e166d09d4324
