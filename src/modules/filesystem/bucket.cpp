@@ -237,9 +237,6 @@ void bucket::store(void) {
 		
 		_ASSERT(hashesLoaded!=0);
 		
-		//if(chunksLoaded ==0 ) {loadChunks();} //@todo: it SHOULD be possible to loose this shit....
-		
-
 		_ASSERT(hashes.size() == chunksInBucket);
 
 		//
