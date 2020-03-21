@@ -118,7 +118,12 @@ elif [[ "$@" == "dedup" ]]; then
 			echo "PASS: File matches original"
 		fi
 
+
 fi
+
+grep "ERROR" /srv/log.txt
+grep "WARNING" /srv/log.txt
+
 } | tee -a /srv/log.txt
 
 
