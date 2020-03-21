@@ -25,7 +25,6 @@
 #endif
 #include <thread>
 #include <algorithm>
-#include "modules/crypto/block.h"
 #include "modules/util/files.h"
 
 using namespace filesystem;

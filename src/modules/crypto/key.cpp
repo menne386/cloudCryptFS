@@ -4,7 +4,6 @@
 #include "key.h"
 #include "main.h"
 #include "sha256.h"
-#include "block.h"
 
 #include <sodium.h>
 
