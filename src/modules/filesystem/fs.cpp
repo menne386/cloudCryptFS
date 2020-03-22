@@ -63,8 +63,14 @@ bucketInfo::bucketInfo(crypto::protocolInterface * p, bool isMeta) {
 }
 void bucketInfo::clear(void) {
 	FS->srvMESSAGE("Clearing ",meta?"meta":""," hashes");
+	auto hl = hashesIndex.list();
+	for(auto & i: hl) {
+		if(i) {
+			i->rest();
+		}
+	}
 	
-	hashesIndex.clear();
+	hashesIndex.clear();//@todo: potential deadlock, perhaps use shared_recursive mutex?
 	
 	FS->srvMESSAGE("Clearing ",meta?"meta":""," buckets");
 	auto l = loaded.list();
@@ -987,7 +993,6 @@ std::shared_ptr<hash> fs::getHash(const bucketIndex_t& in) {
 }*/
 
 void fs::removeHash(const crypto::sha256sum & in, bucketIndex_t bucket) {
-	lckguard l(_mut);
 	if (buckets->hashesIndex.erase(in) == 1) {
 		buckets->accounting->post(bucket);
 	}
