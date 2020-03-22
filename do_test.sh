@@ -9,12 +9,13 @@ ulimit -c unlimited
 
 UIDGID="`id -u`:`id -g`"
 
+echo "$@" > /output/cmdline
+
 if [[ "$1" == "--uidgid" ]]; then
 	shift
 	UIDGID=$1
 	shift
 fi
-
 
 function check_for_crash {
 	for i in `ls /output/core* 2> /dev/null`; do
