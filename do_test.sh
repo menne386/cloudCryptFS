@@ -20,7 +20,7 @@ fi
 function check_for_crash {
 	for i in `ls /output/core* 2> /dev/null`; do
 		echo "!!!!Found core dump $i!!!!"
-		gdb /cloudCryptFS.docker $i -ex bt -ex q --batch > /output/core_dump_bt
+		gdb /cloudCryptFS.docker $i -ex "thread apply all bt" -ex q --batch > /output/core_dump_bt
 		chown -R $UIDGID /output
 		exit 1
 	done
