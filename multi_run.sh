@@ -11,11 +11,23 @@ if [[ "$1" == "-n" ]]; then
 	shift
 fi
 
+rm -rf test/run*
 
+echo "Running $NUM tests with parameters: $@"
 
 for (( VARIABLE=1; VARIABLE<=NUM; VARIABLE++ ))
 do
-./fstest_docker.sh $@ 
-cp "test/log.txt" "test/run$VARIABLE.txt"
+./fstest_docker.sh -n $VARIABLE $@ 
 done
-grep "Result: " test/run*
+
+echo "$NUM tests completed with parameters: $@"
+
+echo "Coredumps:"
+ls test/run*/core* -lha 2>/dev/null
+echo "Errors:"
+grep "FAIL" test/run*/log.txt
+grep "ERROR" test/run*/log.txt
+echo "Warnings:"
+grep "WARNING" test/run*/log.txt
+echo "Passed:"
+grep "PASS" test/run*/log.txt
