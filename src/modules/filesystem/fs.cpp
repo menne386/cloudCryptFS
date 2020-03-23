@@ -994,6 +994,7 @@ std::shared_ptr<hash> fs::getHash(const bucketIndex_t& in) {
 
 void fs::removeHash(const crypto::sha256sum & in, bucketIndex_t bucket) {
 	if (buckets->hashesIndex.erase(in) == 1) {
+		//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
 		buckets->accounting->post(bucket);
 	}
 }
@@ -1003,6 +1004,9 @@ std::shared_ptr<hash> fs::newHash(const crypto::sha256sum & in,std::shared_ptr<c
 	{
 		auto it = buckets->hashesIndex.get(in);
 		if (it) {
+			if(!it->compareChunk(c)) {
+				srvERROR("HASH COLLISION in hash: ",in.toShortStr());
+			}
 			return it;
 		}
 	}
@@ -1016,6 +1020,7 @@ std::shared_ptr<hash> fs::newHash(const crypto::sha256sum & in,std::shared_ptr<c
 		auto newHash = std::make_shared<hash>(in, bucket, 0, c);
 
 		B->putHash(bucket.index,newHash);
+		//B->putChunk(bucket.index,c);
 		buckets->hashesIndex.insert(in,newHash);
 		//return the new hash object
 		return newHash;

@@ -16,14 +16,23 @@ script::int_t hash::getRefCnt() {
 
 script::int_t hash::incRefCnt() {
 	++refcnt;
+	FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	return refcnt;
 }
 
 script::int_t hash::decRefCnt() {
 	--refcnt;
+	FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	return refcnt;
 }
 
+bool hash::compareChunk(shared_ptr<chunk> c) {
+	if(data==nullptr) {
+		//Load Bucket from FS: get chunk from bucket
+		data = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
+	}
+	return data->compareChunk(c);
+}
 
 filesystem::hash::hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt, std::shared_ptr<chunk> idata): _hsh(ihash),bucketIndex(ibucket),refcnt(irefcnt), data(idata) {
 }

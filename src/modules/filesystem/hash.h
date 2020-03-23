@@ -50,7 +50,7 @@ namespace filesystem {
 		script::int_t incRefCnt();
 		script::int_t decRefCnt();
 		
-	
+		bool compareChunk(shared_ptr<chunk> c);
 		
 		bool hasData() { return data!=nullptr; }
 		

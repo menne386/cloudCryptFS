@@ -28,6 +28,8 @@ namespace filesystem {
 		std::shared_ptr<chunk> clone() const;
 		static std::shared_ptr<chunk> newChunk(my_size_t size, const unsigned char * input);
 		
+		bool compareChunk(shared_ptr<chunk> c);
+		
 		template<typename T> T* as() { 
 			static_assert(sizeof(T) == chunkSize ,"type should be of chunkSize"); 
 			auto * ptr = reinterpret_cast<T*>(&data[0]);

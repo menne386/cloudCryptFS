@@ -32,9 +32,7 @@ namespace filesystem {
 		crypto::protocolInterface * _protocol;
 		void loadChunks(void);
 		void loadHashes(void);
-		size_t getRefListHash();
 		std::atomic_int changesSinceLoad,hashesLoaded,chunksLoaded;
-		std::atomic<size_t> hashOfRefs;
 		loadFilter_t loadFilter;
 		storeFilter_t storeFilter;
 

@@ -60,30 +60,10 @@ void bucket::loadHashes(void) {
 			}
 			ptr++;
 		}
-
-		hashOfRefs =  getRefListHash();
-		//CLOG(N);
 	}
-	//CLOG("bucket::load_end: ",filename);
 	hashesLoaded = hashes.size();
 }
 
-size_t bucket::getRefListHash() {
-	size_t N = 0;
-	size_t N2 = 0;
-	{
-		lckunique lck(_mut);
-		for (auto& h : hashes) {
-			auto hh = atomic_load(&h);
-			if (hh) {
-				N2++;
-				N += hh->getRefCnt();
-			}
-		}
-	}
-	return N+N2;
-}
-	
 
 void bucket::loadChunks(void) {
 	lckunique lck(_mut);
@@ -140,7 +120,6 @@ bucket::bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protoc
 	changesSinceLoad = 0;
 	hashesLoaded = 0;
 	chunksLoaded = 0;
-	hashOfRefs = 0;
 }
 
 bucket::~bucket() {
@@ -215,10 +194,9 @@ void bucket::putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::s
 
 
 void bucket::store(void) {
-	auto newRefListHash = getRefListHash();
-	if(changesSinceLoad>0 || newRefListHash != hashOfRefs.load()) {
+	if(changesSinceLoad>0) {
 		lckunique lck(_mut);
-		if(changesSinceLoad==0 && newRefListHash == hashOfRefs.load()) {
+		if(changesSinceLoad==0) {
 			return;
 		}
 		const bool haveChunks = chunksLoaded>0;
@@ -305,6 +283,5 @@ void bucket::store(void) {
 
 		//CLOG("bucket::store_end: ",filename);
 		changesSinceLoad = 0;
-		hashOfRefs = newRefListHash;
 	}
 }

@@ -508,31 +508,36 @@ void file::truncate(my_off_t newSize) {
 	if(_type!=specialFile::REGULAR) return ;
 	FS->srvDEBUG("file::truncate: ", path, " to ", newSize);
 	std::vector<hashPtr> toDelete;
-	{
-		timeHolder tv = currentTime();
+	timeHolder tv = currentTime();
 
-		FS->srvDEBUG("update timestamp for ",path);
-		if(newSize!=(my_off_t)size()) {
-			INode()->mtime = tv;
-			INode()->ctime = tv;
-		}
-
-		my_size_t newNum = newSize/chunkSize;
-		if(newSize % chunkSize>0) {
-			++newNum;
-		}
-		if(newNum< hashList.getSize()) {
-			toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
-		}
+	FS->srvDEBUG("update timestamp for ",path);
+	if(newSize!=(my_off_t)size()) {
+		INode()->mtime = tv;
+		INode()->ctime = tv;
 	}
-	for (auto & deleteHash : toDelete) {
-		if(deleteHash) {
-			deleteHash->decRefCnt();
-			deleteHash->rest();
-		}
+
+	my_size_t newNum = newSize/chunkSize,expected = 0;
+	if(newSize % chunkSize>0) {
+		++newNum;
 	}
 	
+	if(newNum< hashList.getSize()) {
+		expected = hashList.getSize()-newNum;
+		toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
+		_ASSERT(toDelete.size()==expected);
+		for (auto & deleteHash : toDelete) {
+			if(deleteHash) {
+				--expected;
+				deleteHash->decRefCnt();
+			}
+		}
+		toDelete.clear();
+		_ASSERT(expected==0);
+	}
+	
+	
 	INode()->size = newSize;
+	rest();
 }
 
 my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
@@ -666,6 +671,7 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 					writeHash = newHsh;
 					shouldUpdateHashList = true;
 				}
+				//_ASSERT(writeHash->getRefCnt()>0);
 			}
 			myFileOffset += chunkSize;
 		}
@@ -746,10 +752,7 @@ bool file::rest() {
 	}
 	FS->srvDEBUG("file::rest ",num," for ", path);
 	toRest.clear();
-	if(num>0) {
-		FS->srvDEBUG("file::storeHashes ", path);
-		storeHashes();
-	}
+	storeHashes();
 	return num>0;
 }
 

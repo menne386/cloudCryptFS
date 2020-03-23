@@ -60,3 +60,16 @@ std::shared_ptr<chunk> filesystem::chunk::newChunk(my_size_t size, const unsigne
 	}
 	return newChunk;
 }
+
+bool chunk::compareChunk(shared_ptr<chunk> c) {
+	auto * A = reinterpret_cast<uint64_t *>(&data[0]);
+	auto * B = reinterpret_cast<uint64_t *>(&c->data[0]);
+	for(unsigned i=0;i<data.size()/sizeof(uint64_t);++i,++A,++B) {
+		if(*A != *B) {
+			//CLOG("ERROR: ",*A ,"!=",*B);
+			return false;
+		}
+	}
+	
+	return true;
+}
