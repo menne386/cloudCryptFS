@@ -7,6 +7,21 @@
 echo '/output/core' > /proc/sys/kernel/core_pattern
 ulimit -c unlimited
 
+function compare_files {
+	local FILEA=`cat $1 | md5sum`
+	local FILEB=`cat $2 | md5sum`
+	
+	if [[ "$FILEA" != "$FILEB" ]];then
+		echo "FAIL! $1 does not match $2 (\"$FILEA\" != \"$FILEB\")"
+		echo "A:"
+		tail -c 256 $1 | xxd
+		echo "B:"
+		tail -c 256 $2 | xxd	
+	else
+		echo "PASS: $1 matches $2"
+	fi
+}
+
 UIDGID="`id -u`:`id -g`"
 
 echo "$@" > /output/cmdline
@@ -50,8 +65,6 @@ check_for_crash
 cd /mnt 
 
 
-CREATEREAD=""
-DEDUP=""
 
 OUTPUT="/output"
 {
@@ -63,14 +76,14 @@ if [[ "$1" == "create_read" ]]; then
 		cp /cloudCryptFS.docker /mnt/ccfstestfile -v
 		cp /testfile1 /mnt -v
 		cp /testfile2 /mnt -v
-		CREATEREAD="create_read"
+		touch /output/create_read
 elif [[ "$1" == "dedup" ]]; then
 		cp /testfile1 /bigfile /mnt -v
 		mkdir /mnt/test
 		sleep 6
 		cp /testfile2 /bigfile /mnt/test -v
 		sleep 6
-		DEDUP="dedup"
+		touch /output/dedup
 elif [[ -d "/tests/$1" ]]; then
 		if [[ "$2" == "-v" ]]; then
 			prove -e bash -r /tests/$1 -v 
@@ -126,11 +139,13 @@ check_for_crash
 
 {
 
-if [[ "$CREATEREAD" == "create_read" ]]; then
-	md5sum /mnt/testfile1 /testfile1 /mnt/testfile2 /testfile2 /mnt/ccfstestfile /cloudCryptFS.docker
+if [[ -f "/output/create_read" ]]; then
+	compare_files /mnt/testfile1 /testfile1
+	compare_files /mnt/testfile2 /testfile2
+	compare_files /mnt/ccfstestfile /cloudCryptFS.docker
 fi
 
-if [[ "$DEDUP" == "dedup" ]]; then
+if [[ -f "/output/dedup" ]]; then
 	A=`grep "de-dup" -B2 /output/_stats`
 	B=`grep "de-dup" -B2 /output/_stats_final`
 	C=`grep "de-dup" /output/_stats_final`
@@ -141,33 +156,16 @@ if [[ "$DEDUP" == "dedup" ]]; then
 		echo "A: $A"
 		echo "B: $B"
 	else
-			echo "PASS: after re-mouting, deduplication stats are the same!"
+		echo "PASS: after re-mouting, deduplication stats are the same!"
 	fi
-	if [[ "$C" != "About ~153MB de-duplicated." ]]; then
+	if [[ "$C" != "About ~153MB de-duplicated." && "$C" != "About ~155MB de-duplicated." && "$C" != "About ~157MB de-duplicated." ]]; then
 			echo "FAILT! de-dup failed? $C"
 	else
-			echo "PASS: $C"
+			echo "PASS: De-duplicated the expected amount"
 	fi
 	
-	FILEA=`cat /mnt/bigfile | md5sum`
-	FILEB=`cat /mnt/test/bigfile | md5sum`
-	FILEC=`cat /bigfile | md5sum`
-
-	if [[ "$FILEA" != "$FILEB" ]];then
-		echo "FAIL! Files are not equal"
-	else
-		echo "PASS: Files are equal"
-	fi
-
-	if [[ "$FILEA" != "$FILEC" ]];then
-		echo "FAIL! File does not match original (\"$FILEA\" != \"$FILEC\")"
-		echo "original:"
-		tail -c 256 /bigfile | xxd
-		echo "copy:"
-		tail -c 256 /mnt/bigfile | xxd	
-	else
-		echo "PASS: File matches original"
-	fi
+	compare_files /mnt/bigfile /mnt/test/bigfile
+	compare_files /bigfile /mnt/bigfile
 fi
 
 touch /srv/decrypt_fail
