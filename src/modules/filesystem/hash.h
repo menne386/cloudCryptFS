@@ -33,15 +33,22 @@ namespace filesystem {
 
 	class hash {
 	private:
-		
+		typedef uint32_t flagtype;
 		crypto::sha256sum _hsh;
 		bucketIndex_t bucketIndex;
 		std::atomic<script::int_t> refcnt;		
 		std::shared_ptr<chunk> data;
+		std::atomic<flagtype> flags;
+		void clearFlags(flagtype in);
+		void setFlags(flagtype in);
+		bool isFlags(flagtype in);
 	public:
 		static constexpr unsigned REFCNT = 0;
 		static constexpr unsigned BUCKETID = 1;
 		static constexpr unsigned BUCKETINDEX = 2;
+		static constexpr flagtype FLAG_DELETED     = 1 << 0;
+		static constexpr flagtype FLAG_NOAUTOSTORE = 1 << 1;
+		static constexpr flagtype FLAG_NOAUTOLOAD  = 1 << 2;
 
 		const crypto::sha256sum & getHashPrimitive() {return _hsh;};
 		script::str_t getHashStr() const { return _hsh.toShortStr(); };
@@ -55,7 +62,7 @@ namespace filesystem {
 		bool hasData() { return data!=nullptr; }
 		
 		
-		hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt ,std::shared_ptr<chunk> idata);
+		hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt ,std::shared_ptr<chunk> idata, flagtype iflags = 0);
 		~hash();
 		
 		
