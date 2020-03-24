@@ -1,6 +1,10 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+
+// file.cpp contains the filesystem::file class, this class governs the concept of a file and/or a directory
+// It translates reads/writes and other file operations into changes to the hashes and chunks that make up the file.
+// 
 #include "file.h"
 #include "fs.h"
 #include "hash.h"
@@ -17,7 +21,7 @@
 #endif
 
 /*
- @todo: IDEA: Should make a template that governs std::vector<std::shared_ptr<>> so that we very little locking:
+ IDEA: Should make a template that governs std::vector<std::shared_ptr<>> so that we very little locking:
 		Methods: getRange() //retrieve a range from the list atomicly.
 		         updateRange() //Atomicly swap the range
 		         expand() // Add new items to the back of the list.
@@ -55,19 +59,7 @@ file::~file() {
 };
 
 
-directoryContents file::getDirectory() {
-	lckunique l(_mut); //Locking required for directory member
-	directoryContents _ret;
-	if(directory && type()==fileType::DIR) {
-		for(auto & it: *directory) {
-			if(it.first.empty()==false && it.first.front()!='/') {
-				_ret[it.first].fullindex = it.second.getI(0,1);
-			}
-		}
-	}
-	
-	return _ret;
-}
+
 
 std::vector<bucketIndex_t> filesystem::file::inoList() {
 	lckunique l(_mut);//Locking required for INode list
@@ -132,11 +124,7 @@ void file::setMetaProperty(const str & propertyname,script::complextypePtr in) {
 	extraMeta->setOPtr(propertyname,0,in);
 }
 
-std::shared_ptr<script::ComplexType> file::getMetaPropertyAsObject(const str & name) {
-	lckunique l(_mut); // Need lock to protect extraMeta variable
-	return extraMeta->getOPtr(name);
-	
-}
+
 
 
 void file::addLink(void) { ++INode()->nlinks; }
@@ -297,32 +285,40 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 }
 
 my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx) {
-	lckunique l(_mut); // Need lock to protect directory variable
 	if(!validate_access(ctx,access::WX)) {
 		return EE::access_denied;
 	}
-	_ASSERT(type()==fileType::DIR);
+	auto directory = script::ComplexType::newComplex();
+	if(!readDirectoryContent(directory)) {
+		return EE::permission_denied;
+	}
+	
 	if(directory->hasProperty(name)) {
 		return EE::exists;
 	}
+	
 	//if we overwrite a node here, we throw away an inode.
 	_ASSERT(nodeMeta->as<inode>()->myID.bucket!=0);
+	
 	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID.fullindex, " mode:",nodeMeta->as<inode>()->mode.load());
 	directory->getI(name) = nodeMeta->as<inode>()->myID.fullindex;
-	auto tv = currentTime();
-	INode()->mtime = tv;
-	INode()->ctime = tv;
+	if(!writeDirectoryContent(directory)) {
+		return EE::permission_denied;
+	}
+	INode()->ctime = currentTime();
 	
-	writeDirectory();
 	
 	return EE::ok;
 }
 my_err_t file::removeNode(const str & name,const context * ctx) {
-	lckunique l(_mut); // Need lock to protect directory variable
-	
 	if(!validate_access(ctx,access::WX)) {
 		return EE::access_denied;
 	}
+	auto directory = script::ComplexType::newComplex();
+	if(!readDirectoryContent(directory)) {
+		return EE::permission_denied;
+	}
+	
 	if(!directory->hasProperty(name)) {
 		return EE::entity_not_found;
 	}
@@ -330,21 +326,29 @@ my_err_t file::removeNode(const str & name,const context * ctx) {
 	if(directory->clearProperty(name)!=1) {
 		return EE::entity_not_found;
 	}
-	auto tv = currentTime();
-	INode()->mtime = tv;
-	INode()->ctime = tv;
 	
-	writeDirectory();
+	if(!writeDirectoryContent(directory)) {
+		return EE::permission_denied;
+	}
+	INode()->ctime = currentTime();
 	
 	return EE::ok;
 }
-my_err_t file::hasNode(const str & name,const context * ctx) {
-	lckunique l(_mut); // Need lock to protect directory variable
+my_err_t file::hasNode(const str & name,const context * ctx,bucketIndex_t * id) {
 	if(ctx && !validate_access(ctx,access::X)) {
 		return EE::access_denied;
 	}
+	
+	auto directory = script::ComplexType::newComplex();
+	if(!readDirectoryContent(directory)) {
+		return EE::permission_denied;
+	}
+	
 	if(!directory->hasProperty(name)) {
 		return EE::entity_not_found;
+	}
+	if(id) {
+		id->fullindex = directory->getI(name);
 	}
 	
 	return EE::ok;
@@ -429,22 +433,6 @@ void file::loadHashes(void) {
 		extraMeta->unserialize(metaString);
 	}
 	
-	if(type()==fileType::DIR) {
-		directory = ComplexType::newComplex();
-		if(size()) {
-			str content;
-			content.resize(size());
-			if(read(reinterpret_cast<uint8_t*>(&content[0]),size(),0)!=(int)content.size()) {
-				FS->srvERROR("Failed to read directory file for:",path);
-			}
-			FS->srvDEBUG("directory: ",content, " from: ",path);
-			try{
-				directory->unserialize(content);
-			} catch(std::exception & e) {
-				FS->srvERROR("Failed to unserialize directory file for:",path," error: ",e.what());
-			}
-		}
-	}
 	
 }
 void file::storeHashes(void) {
@@ -454,11 +442,11 @@ void file::storeHashes(void) {
 	if(type()==fileType::FILE || type()==fileType::DIR || type()==fileType::LNK) {
 		auto hashes = hashList.getRange(0,hashList.getSize());
 		if(hashes.empty()==false) {
-			FS->srvDEBUG("t_file::storeHashes: ", path, ":", hashes.size());
 			unsigned idx = 0;
 			auto imax = inode::numctd;
 			auto c = metaChunk;
-			auto nextId = c->as<inode>()->nextID;			
+			auto nextId = c->as<inode>()->nextID;	
+			unsigned newMetaChunks = 0;
 			for(auto & H:hashes) {
 				_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
 				if(imax==inode::numctd) {
@@ -478,14 +466,14 @@ void file::storeHashes(void) {
 						} else {
 							c = FS->createCtd(c->as<inode_ctd>());
 						}
-						FS->srvDEBUG("needed to create a new metaChunk for ",path);
+						++newMetaChunks;
 					}
 					nextId = c->as<inode_ctd>()->nextID;
 					imax = inode_ctd::numctd;
 					idx=0;
 				}
 			}
-			FS->srvDEBUG("t_file::storeHashes DONE: ", path, ":", hashes.size());
+			FS->srvDEBUG("file::storeHashes: ", path, " hashes:", hashes.size(), " newMetaChunks:",newMetaChunks);
 		}
 	}
 	
@@ -529,9 +517,10 @@ void file::truncate(my_off_t newSize) {
 			if(deleteHash) {
 				--expected;
 				deleteHash->decRefCnt();
+				deleteHash->rest(); //This will store the hash, or, will delete it altogether.
 			}
 		}
-		toDelete.clear();
+		toDelete.clear();//This will call rest for all hashes that are exclusivly owned by this
 		_ASSERT(expected==0);
 	}
 	
@@ -724,7 +713,11 @@ bool file::readlnk(char * buffer, my_size_t bufferSize) {
 bool file::isFullDir() {
 	if(type()!=fileType::DIR) return false;
 
-	lckunique l(_mut); //Lock required to protect directory member
+	auto directory = script::ComplexType::newComplex();
+	if(!readDirectoryContent(directory)) {
+		return true;
+	}
+
 	for(auto & v:*directory) {
 		if(v.first.empty()==false && v.first.at(0)!='/') {
 			return true;
@@ -737,12 +730,8 @@ bool file::isFullDir() {
 //This puts the file + it's data to rest so that it gets stored to hard disk.
 bool file::rest() {
 	//No locking required as only calls are made to properly protected member functions
-	std::vector<hashPtr> toRest;
 	if (_type != specialFile::REGULAR) return false;
-	FS->srvDEBUG("file::rest ", path);
-	toRest = hashList.getRange(0,hashList.getSize());
-	FS->srvDEBUG("file::rest list copy completed ", path);
-	FS->storeInode(metaChunk);
+	auto toRest = hashList.getRange(0,hashList.getSize());
 	
 	size_t num = 0;
 	for(auto & i: toRest) {
@@ -853,29 +842,43 @@ bool file::validate_ownership(const context * ctx,my_mode_t newMode) {
 }
 
 
-str file::getDirectoryContent() {
-	lckunique l(_mut); //Locking to protect directory member
-	str content;
-	if(type()==fileType::DIR && directory) {
-		//@todo: A crash happens between the line above and before truncate. Perhaps empty hash in write??
-		content = directory->serialize();
-		
+bool file::readDirectoryContent(script::complextypePtr out) {
+	if(type()==fileType::DIR) {
+		if(size()) {
+			str content;
+			content.resize(size());
+			if(read(reinterpret_cast<uint8_t*>(&content[0]),size(),0)!=(int)content.size()) {
+				FS->srvERROR("Failed to read directory for:",path);
+				return false;
+			}
+			FS->srvDEBUG("directory: ",content, " loaded from: ",path);
+			try{
+				out->unserialize(content);
+			} catch(std::exception & e) {
+				FS->srvERROR("Failed to unserialize directory file for:",path," error: ",e.what());
+				return false;
+			}
+		}
 	}
-	return content;
+	return true;
 }
-void file::writeDirectory(void) {
-	str content = getDirectoryContent();
+bool file::writeDirectoryContent (script::complextypePtr in) {
+	auto content = in->serialize(1);
+	if(content.size()==2) {
+		content.clear();
+	}
 	if(content.empty()==false) {
 		FS->srvDEBUG("directory: ",content, " to: ",path);
 		if(write(reinterpret_cast<uint8_t*>(&content[0]),content.size(),0)!=(int)content.size()) {
 			FS->srvERROR("Failed to write directory: ",path);
+			return false;
 		}
-		truncate(content.size());
+	} else {
+		FS->srvDEBUG("empty directory to: ",path);
 	}
-	if(!rest()) {
-		storeHashes();
-	}
-	
+	truncate(content.size());
+	rest();
+	return true;
 }
 
 void file::open(void) {
@@ -891,8 +894,6 @@ bool file::close(void) {
 		if(rest()) {
 			FS->unloadBuckets();
 			return true;
-		} else {
-			storeHashes();//Always store hashes on close
 		}
 	}
 	return false;

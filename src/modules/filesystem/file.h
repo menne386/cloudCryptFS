@@ -21,7 +21,6 @@ namespace filesystem{
 	class hash;
 	
 	typedef std::shared_ptr<file> filePtr;
-	typedef std::map<str,bucketIndex_t> directoryContents;
 	
 	enum class fileType: script::int_t{//Storage for this should be the int_t type of script because the type will be stored in ComplexType
 		INVALID = 0,
@@ -58,15 +57,12 @@ namespace filesystem{
 		typedef atomic_shared_ptr_list<hash>::listType _listType;
 		//std::vector<std::shared_ptr<hash>> hashes;
 		
-		std::shared_ptr<script::ComplexType> directory;
 		std::atomic_int refs;
 		bool requireType(fileType required);
 		void loadHashes(void);
 		void storeHashes(void);
 		bool validate_ownership(const context * ctx,my_mode_t newMode);
 		inode * INode() {return metaChunk->as<inode>();} 
-		str getDirectoryContent();
-		void writeDirectory(void);
 	public:
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
@@ -75,12 +71,14 @@ namespace filesystem{
 		bool isSpecial() { return _type!=specialFile::REGULAR; }
 		bool valid() {return _type!=specialFile::ERROR;}
 		std::shared_ptr<chunk> getMetaChunk() {return metaChunk;}
-		directoryContents getDirectory();
+
+		bool readDirectoryContent(script::complextypePtr out);
+		bool writeDirectoryContent(script::complextypePtr in);
+		
 		std::vector<bucketIndex_t> inoList();
 		void storeMetaProperties(void);
 		void setMetaProperty(const str & propertyname,const std::set<uint64_t> & in);
 		void setMetaProperty(const str & propertyname,script::complextypePtr in);
-		std::shared_ptr<script::ComplexType> getMetaPropertyAsObject(const str & name);
 		void setSpecialFile(const specialFile in) {_type = in;}
 		 
 		void addLink(void);
@@ -109,7 +107,7 @@ namespace filesystem{
 		
 		my_err_t addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx);
 		my_err_t removeNode(const str & name,const context * ctx);
-		my_err_t hasNode(const str & name,const context * ctx);
+		my_err_t hasNode(const str & name,const context * ctx,bucketIndex_t * id=nullptr);
 		
 		bool setTimes(const timeHolder tv[2]);
 

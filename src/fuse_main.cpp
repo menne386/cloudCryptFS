@@ -170,8 +170,11 @@ static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 	if(D->valid() && D->type()==fileType::DIR) {
 		filler(buf, ".", NULL, 0);
 		filler(buf, "..", NULL, 0);
-		auto meta = D->getDirectory();
-		for(const auto & it: meta) {
+		auto meta = script::ComplexType::newComplex();
+		if(!D->readDirectoryContent(meta)) {
+			return -ENOENT;
+		}
+		for(const auto & it: *meta) {
 			filler(buf, it.first.c_str(),nullptr,0);
 		}
 	}

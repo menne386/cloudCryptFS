@@ -186,7 +186,7 @@ void bucket::putHash(int64_t id,std::shared_ptr<hash> c) {
 
 void bucket::putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::shared_ptr<chunk> c) {
 	auto hsh = c->getHash();
-	auto rootHash = make_shared<hash>(hsh,idx,irefcnt,nullptr);
+	auto rootHash = make_shared<hash>(hsh,idx,irefcnt,nullptr,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD);
 	putHash(idx.index,rootHash);
 	putChunk(idx.index,c);
 }

@@ -635,14 +635,15 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 		return specialfile_error;
 	}
 	
-	auto dir = parentFile->getDirectory();
-	if(dir.find(childname) == dir.end()) {
+	bucketIndex_t i;
+	auto nodeError = parentFile->hasNode(childname,nullptr,&i);
+	if(nodeError) {
 		srvDEBUG("Parentfile ",parentname," dir entry not found: ",childname);
-		if(errcode) { errcode[0] = EE::entity_not_found; };
+		if(errcode) { errcode[0] = nodeError; };
 		return specialfile_error;
 	}
 	
-	bucketIndex_t i = dir[childname];
+	
 	_ASSERT(i.bucket>0);
 	
 	{
