@@ -3,9 +3,12 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-
 echo '/output/core' > /proc/sys/kernel/core_pattern
 ulimit -c unlimited
+
+UIDGID="`id -u`:`id -g`"
+echo "$@" > /output/cmdline
+
 
 function compare_files {
 	local FILEA=`cat $1 | md5sum`
@@ -22,15 +25,15 @@ function compare_files {
 	fi
 }
 
-UIDGID="`id -u`:`id -g`"
-
-echo "$@" > /output/cmdline
-
-if [[ "$1" == "--uidgid" ]]; then
-	shift
-	UIDGID=$1
-	shift
-fi
+function usage {
+	echo "usage: $0 [--uidgid xxx:xxx] some test names"
+	echo "Avaiable tests:"
+	echo "create_read, dedup, fstest"
+	cd /tests/ 
+	echo "Available tests in fstest:"
+	ls -d */ 
+	cd - > /dev/null
+}
 
 function check_for_crash {
 	for i in `ls /output/core* 2> /dev/null`; do
@@ -40,6 +43,22 @@ function check_for_crash {
 		exit 1
 	done
 }
+
+
+
+#parse --uidgid parameter
+if [[ "$1" == "--uidgid" ]]; then
+	shift
+	UIDGID=$1
+	shift
+fi
+
+#display usage:
+if [[ "$@" == "" ]]; then 
+	usage
+	exit 1
+fi
+
 
 echo "creating..."
 ./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes --log-level 10  > /output/create_log.txt || exit 1 
@@ -66,8 +85,10 @@ cd /mnt
 
 
 
+
 OUTPUT="/output"
 {
+
 
 while (( "$#" )); do
 
@@ -84,7 +105,7 @@ elif [[ "$1" == "dedup" ]]; then
 		cp /testfile2 /bigfile /mnt/test -v
 		sleep 6
 		touch /output/dedup
-elif [[ -d "/tests/$1" ]]; then
+elif [[ -d "/tests/$1" || -f "/tests/$1" ]]; then
 		if [[ "$2" == "-v" ]]; then
 			prove -e bash -r /tests/$1 -v 
 			shift
@@ -98,6 +119,9 @@ elif [[ "$1" == "fstest" ]]; then
 		else
 			prove -e bash -r /tests/  
 		fi
+else 
+	echo "test $1 not found!"
+	usage
 fi
 
 shift
@@ -105,8 +129,6 @@ shift
 done
 
 } | tee -a /srv/log.txt
-
-
 
 cd /
 
@@ -116,12 +138,9 @@ cat /mnt/._stats > "$OUTPUT/_stats"
 
 echo "unmounting..."
 fusermount -u /mnt
-
-
-sleep 5
+sleep 2
 cp /srv/log.txt $OUTPUT
 chown -R $UIDGID /output
-
 check_for_crash
 
 
@@ -171,8 +190,8 @@ fi
 touch /srv/decrypt_fail
 cp /srv/decrypt_fail $OUTPUT
 
-grep "ERROR" /srv/log.txt
-grep "WARNING" /srv/log.txt
+#grep "ERROR" /srv/log.txt
+#grep "WARNING" /srv/log.txt
 
 } | tee -a /srv/log.txt
 

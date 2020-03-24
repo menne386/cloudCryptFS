@@ -22,12 +22,12 @@ done
 
 echo "$NUM tests completed with parameters: $@"
 
-echo "Coredumps:"
-ls test/run*/core* -lha 2>/dev/null
+echo "Passed:"
+grep "PASS" test/run*/log.txt
+echo "Warnings:"
+grep "WARNING" test/run*/log.txt
 echo "Errors:"
 grep "FAIL" test/run*/log.txt
 grep "ERROR" test/run*/log.txt
-echo "Warnings:"
-grep "WARNING" test/run*/log.txt
-echo "Passed:"
-grep "PASS" test/run*/log.txt
+echo "Coredumps:"
+ls test/run*/core* -lha 2>/dev/null
