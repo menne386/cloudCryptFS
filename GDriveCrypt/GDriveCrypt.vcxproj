@@ -73,12 +73,12 @@
     <IncludePath>C:\Users\menne\Documents\gdrivecrypt\src;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Program Files\Dokan\Dokan Library-1.1.0\include;F:\Downloads\cryptopp820;C:\Users\menne\Documents\gdrivecrypt\src;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Program Files\Dokan\Dokan Library-1.1.0\include;F:\Downloads\cryptopp820;C:\Users\menne\Documents\cloudcryptfs\src;$(IncludePath)</IncludePath>
     <Linkage>StaticLibrary_MT</Linkage>
     <LibraryPath>F:\Downloads\cryptopp820\x64\Output\Release;C:\Program Files\Dokan\Dokan Library-1.1.0\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Program Files\Dokan\Dokan Library-1.1.0\include;F:\Libraries\libsodium\include;C:\Users\menne\Documents\gdrivecrypt\src;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Program Files\Dokan\Dokan Library-1.1.0\include;F:\Libraries\libsodium\include;C:\Users\menne\Documents\cloudcryptfs\src;$(IncludePath)</IncludePath>
     <Linkage>StaticLibrary_MT</Linkage>
     <LibraryPath>F:\Libraries\libsodium\x64\Release\v142\static;C:\Program Files\Dokan\Dokan Library-1.1.0\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -155,7 +155,6 @@
   <ItemGroup>
     <ClCompile Include="..\src\fuse_main.cpp" />
     <ClCompile Include="..\src\main.cpp" />
-    <ClCompile Include="..\src\modules\crypto\block.cpp" />
     <ClCompile Include="..\src\modules\crypto\key.cpp" />
     <ClCompile Include="..\src\modules\crypto\protocol.cpp" />
     <ClCompile Include="..\src\modules\crypto\sha256.cpp" />

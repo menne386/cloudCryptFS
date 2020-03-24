@@ -42,9 +42,6 @@
     <ClCompile Include="..\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\modules\crypto\block.cpp">
-      <Filter>Source Files\Modules\crypto</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\modules\crypto\key.cpp">
       <Filter>Source Files\Modules\crypto</Filter>
     </ClCompile>

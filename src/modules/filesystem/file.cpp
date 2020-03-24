@@ -288,6 +288,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	if(!validate_access(ctx,access::WX)) {
 		return EE::access_denied;
 	}
+	lckunique l(_mut);
 	auto directory = script::ComplexType::newComplex();
 	if(!readDirectoryContent(directory)) {
 		return EE::permission_denied;
@@ -314,6 +315,7 @@ my_err_t file::removeNode(const str & name,const context * ctx) {
 	if(!validate_access(ctx,access::WX)) {
 		return EE::access_denied;
 	}
+	lckunique l(_mut);
 	auto directory = script::ComplexType::newComplex();
 	if(!readDirectoryContent(directory)) {
 		return EE::permission_denied;
