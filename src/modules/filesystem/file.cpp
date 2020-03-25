@@ -645,7 +645,7 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 		
 		auto hashes = hashList.getRange(firstHash,numHashesInWrite);
 		bool shouldUpdateHashList = false;
-		for (auto writeHash: hashes) {
+		for (auto & writeHash: hashes) {
 			_ASSERT(writeHash!=nullptr);
 			
 			if(offset < myFileOffset+ chunkSize && size > 0) {
