@@ -532,6 +532,7 @@ void file::truncate(my_off_t newSize) {
 }
 
 my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
+	_ASSERT(buf != nullptr);
 	FS->_readStats.at(fs::classifySize(size))++;
 	//No locking required as this call only reads from atomic members.
 	if(_type==specialFile::METADATA) {
@@ -570,7 +571,7 @@ my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
 		}
 		if (numHashesInRead > 0) {
 			auto hashes = hashList.getRange(firstHash, numHashesInRead);//@todo: optimize this by only fetching the actual required hashes.
-			for (auto& readHash : hashes) {
+			for (auto readHash : hashes) {
 				_ASSERT(readHash != nullptr);
 				if (offset < myFileOffset + chunkSize && size > 0) {
 					auto newOffset = std::max(offset - myFileOffset, (my_off_t)0);//Determine the offset to start the read from.

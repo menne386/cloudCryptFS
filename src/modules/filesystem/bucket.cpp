@@ -222,11 +222,14 @@ void bucket::store(void) {
 				auto * ptr = reinterpret_cast<uint8_t*>(&cleartext[0]);
 				for(auto & L:chunks) {
 					auto cptr = atomic_load(&L);
-					if(storeFilter) {
-						auto i = storeFilter(cptr);
-						i->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
-					}else {
-						cptr->read(0,chunkSize,reinterpret_cast<uint8_t*>(ptr));
+					if (cptr) {
+						if (storeFilter) {
+							auto i = storeFilter(cptr);
+							i->read(0, chunkSize, reinterpret_cast<uint8_t*>(ptr));
+						}
+						else {
+							cptr->read(0, chunkSize, reinterpret_cast<uint8_t*>(ptr));
+						}
 					}
 					ptr+=chunkSize;
 				} 

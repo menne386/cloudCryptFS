@@ -234,6 +234,7 @@ static int read_callback(const char *path, char *buf, my_size_t size, my_off_t o
 	LOG_OPERATION();
 	auto D = FS->get(path,nullptr,fi->fh);
 	if(D->valid() && D->type()==fileType::FILE) {
+		_ASSERT(buf != nullptr);
 		auto ret =  (int)D->read((unsigned char *)buf,size,offset);
 		//CLOG("read returns: ",ret);
 		return ret;
