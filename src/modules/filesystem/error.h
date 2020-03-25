@@ -6,7 +6,7 @@
 #include "errno.h"
 namespace filesystem {
 	
-	enum class EE:int{
+	enum class EE :int {
 		ok = 0,
 		name_too_long = ENAMETOOLONG,
 		invalid_syscall = ENOSYS,
@@ -16,6 +16,8 @@ namespace filesystem {
 		permission_denied = EPERM,
 		exists = EEXIST,
 		too_big = EFBIG,
+		io_error = EIO,
+		
 	};
 	
 	class error{

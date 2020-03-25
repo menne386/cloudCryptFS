@@ -178,7 +178,17 @@
     <ClInclude Include="..\src\buildn.h" />
     <ClInclude Include="..\src\locks.h" />
     <ClInclude Include="..\src\main.h" />
+    <ClInclude Include="..\src\modules\filesystem\bucket.h" />
+    <ClInclude Include="..\src\modules\filesystem\bucketaccounting.h" />
+    <ClInclude Include="..\src\modules\filesystem\chunk.h" />
+    <ClInclude Include="..\src\modules\filesystem\context.h" />
+    <ClInclude Include="..\src\modules\filesystem\error.h" />
+    <ClInclude Include="..\src\modules\filesystem\file.h" />
+    <ClInclude Include="..\src\modules\filesystem\fs.h" />
+    <ClInclude Include="..\src\modules\filesystem\hash.h" />
     <ClInclude Include="..\src\modules\filesystem\hashbucket.h" />
+    <ClInclude Include="..\src\modules\filesystem\inode.h" />
+    <ClInclude Include="..\src\modules\filesystem\mode.h" />
     <ClInclude Include="..\src\modules\util\atomic_shared_ptr_list.h" />
     <ClInclude Include="..\src\modules\util\protected_unordered_map.h" />
     <ClInclude Include="..\src\types.h" />

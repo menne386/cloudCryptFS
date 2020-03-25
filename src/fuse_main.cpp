@@ -55,8 +55,8 @@ timeHolder currentTime() {//@todo: can be put in utility file.
 }
 
 static void copyTime(const timeHolder & in, struct timespec & out) {
-	out.tv_sec = in.tv_sec;
-	out.tv_nsec = in.tv_nsec;
+	out.tv_sec = in.tv_sec.load();
+	out.tv_nsec = in.tv_nsec.load();
 }
 
 static unique_ptr<filesystem::context> getContext(bool getGroups = false) {

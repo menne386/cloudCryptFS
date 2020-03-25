@@ -433,6 +433,10 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	str childname = getChildPath(filename);
 	//srvMESSAGE("mkobject 1 '",parentname,"'");
 	
+	if (childname.empty()) {
+		errorcode = EE::exists;
+		return nullptr;
+	}
 	
 	auto parent = get(parentname.c_str());
 	//srvMESSAGE("mkobject 1b ",filename);
