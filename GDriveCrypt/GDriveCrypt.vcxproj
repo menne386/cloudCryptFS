@@ -190,7 +190,13 @@
     <ClInclude Include="..\src\modules\filesystem\inode.h" />
     <ClInclude Include="..\src\modules\filesystem\mode.h" />
     <ClInclude Include="..\src\modules\util\atomic_shared_ptr_list.h" />
+    <ClInclude Include="..\src\modules\util\console.h" />
+    <ClInclude Include="..\src\modules\util\endian.h" />
+    <ClInclude Include="..\src\modules\util\files.h" />
     <ClInclude Include="..\src\modules\util\protected_unordered_map.h" />
+    <ClInclude Include="..\src\modules\util\shared_recursive_mutex.h" />
+    <ClInclude Include="..\src\modules\util\str.h" />
+    <ClInclude Include="..\src\modules\util\switchhash.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
