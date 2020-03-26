@@ -37,7 +37,7 @@ namespace filesystem {
 		crypto::sha256sum _hsh;
 		bucketIndex_t bucketIndex;
 		std::atomic<script::int_t> refcnt;		
-		std::shared_ptr<chunk> data;
+		std::shared_ptr<chunk> _data;
 		std::atomic<flagtype> flags;
 		void clearFlags(flagtype in);
 		void setFlags(flagtype in);
@@ -59,7 +59,8 @@ namespace filesystem {
 		
 		bool compareChunk(shared_ptr<chunk> c);
 		
-		bool hasData() { return data!=nullptr; }
+		std::shared_ptr<chunk> data(bool load=false);
+		bool hasData() { return data()!=nullptr; }
 		
 		
 		hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt ,std::shared_ptr<chunk> idata, flagtype iflags = 0);

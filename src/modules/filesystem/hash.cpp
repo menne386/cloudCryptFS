@@ -4,6 +4,7 @@
 #include "hash.h"
 #include "chunk.h"
 #include "bucket.h"
+#include "bucketaccounting.h"
 #include "fs.h"
 #include <mutex>
 using namespace filesystem;
@@ -44,21 +45,37 @@ script::int_t hash::incRefCnt() {
 script::int_t hash::decRefCnt() {
 	--refcnt;
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE|FLAG_DELETED)==false) {
+		if (refcnt == 0) {
+			setFlags(FLAG_DELETED);
+			if (FS->buckets->hashesIndex.erase(_hsh) == 1) {
+				//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
+				FS->buckets->accounting->post(bucketIndex);
+			}
+			std::atomic_store(&_data,std::shared_ptr<chunk>());
+		}
 		FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	}
 	return refcnt;
 }
 
 bool hash::compareChunk(shared_ptr<chunk> c) {
-	if(data==nullptr && isFlags(FLAG_NOAUTOLOAD)==false) {
-		//Load Bucket from FS: get chunk from bucket
-		data = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
-	}
-	_ASSERT(data != nullptr);
-	return data->compareChunk(c);
+	auto d = data(true);
+	_ASSERT(d!=nullptr);
+	
+	return d->compareChunk(c);
 }
 
-filesystem::hash::hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt, std::shared_ptr<chunk> idata, flagtype iflags): _hsh(ihash),bucketIndex(ibucket),refcnt(irefcnt), data(idata) ,flags(iflags){
+std::shared_ptr<chunk> hash::data(bool load) {
+	auto ret = std::atomic_load(&_data);
+	if(ret==nullptr && isFlags(FLAG_NOAUTOLOAD)==false) {
+		ret = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
+		std::atomic_store(&_data,ret);
+	}
+	return ret;
+}
+
+
+filesystem::hash::hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt, std::shared_ptr<chunk> idata, flagtype iflags): _hsh(ihash),bucketIndex(ibucket),refcnt(irefcnt), _data(idata) ,flags(iflags){
 }
 
 hash::~hash() {
@@ -68,21 +85,15 @@ hash::~hash() {
 
 
 void hash::read(my_off_t offset,my_size_t size,unsigned char * output) {
-	if(data==nullptr && isFlags(FLAG_NOAUTOLOAD)==false) {
-		//Load Bucket from FS: get chunk from bucket
-		data = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
-	}
-	_ASSERT(data!=nullptr);
-	data->read(offset,size,output);
+	auto d = data(true);
+	_ASSERT(d!=nullptr);
+	d->read(offset,size,output);
 }
 
 hashPtr hash::write(my_off_t offset,my_size_t size,const unsigned char * input) {
-	if(data==nullptr && isFlags(FLAG_NOAUTOLOAD)==false) {
-		//Load Bucket from FS: get chunk from bucket
-		data = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
-	}
-	_ASSERT(data!=nullptr);
-	auto newChunk = data->write(offset,size,input);
+	auto d = data(true);
+	_ASSERT(d!=nullptr);
+	auto newChunk = d->write(offset,size,input);
 	//Hash the new chunk + compare to current hash: if same, return nullptr
 	auto newHash = newChunk->getHash();
 	if( _hsh==newHash) {
@@ -94,20 +105,15 @@ hashPtr hash::write(my_off_t offset,my_size_t size,const unsigned char * input) 
 }
 
 bool hash::rest(void) {
-	bool ret = false;
-	if (refcnt == 0 && isFlags(FLAG_DELETED|FLAG_NOAUTOSTORE) == false) {
-		setFlags(FLAG_DELETED);
-		FS->removeHash(_hsh, bucketIndex);
-		data = nullptr;
-	}
-	if(data) {
+	auto d = data();
+	if(d) {
 		if (refcnt > 0 && isFlags(FLAG_DELETED|FLAG_NOAUTOSTORE) == false) {
-			FS->buckets->getBucket(bucketIndex.bucket)->putChunk(bucketIndex.index, data);
+			FS->buckets->getBucket(bucketIndex.bucket)->putChunk(bucketIndex.index, d);
 		}
-		data = nullptr;
-		ret = true;
+		std::atomic_store(&_data,std::shared_ptr<chunk>());
+		return true;
 	}
-	return ret;
+	return false;
 }
 
 
