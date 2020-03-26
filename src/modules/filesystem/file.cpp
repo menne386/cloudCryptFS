@@ -460,6 +460,7 @@ void file::storeHashes(void) {
 				
 				++idx;
 				if(idx>=imax) {
+					FS->storeInode(c);
 					if(nextId.bucket!=0) {
 						c = FS->inoToChunk(nextId);
 					} else {
@@ -475,7 +476,13 @@ void file::storeHashes(void) {
 					idx=0;
 				}
 			}
+			
+			//Make sure last inode_ctd is properly stored (better once to many then too little.)
+			FS->storeInode(c);
 			FS->srvDEBUG("file::storeHashes: ", path, " hashes:", hashes.size(), " newMetaChunks:",newMetaChunks);
+		} else {
+			//Make sure we truncate the inode list, so loadHashes does not accidently load data from other files.
+			INode()->ctd[0].fullindex = 0;
 		}
 	}
 	
@@ -565,12 +572,17 @@ my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
 		++numHashesInRead;
 	}
 	try{
+		lckshared l2(_mut,std::defer_lock);//, and a shared lock for aligned writes.
+		if(_mut.hasUniqueLock()==false) {
+			l2.lock();
+		}
+		
 		if (firstHash + numHashesInRead > hashList.getSize()) {
 			FS->srvWARNING("Trying to read too many hashes");
 			numHashesInRead = hashList.getSize() - firstHash;
 		}
 		if (numHashesInRead > 0) {
-			auto hashes = hashList.getRange(firstHash, numHashesInRead);//@todo: optimize this by only fetching the actual required hashes.
+			auto hashes = hashList.getRange(firstHash, numHashesInRead);//optimize this by only fetching the actual required hashes.
 			for (auto readHash : hashes) {
 				_ASSERT(readHash != nullptr);
 				if (offset < myFileOffset + chunkSize && size > 0) {
@@ -644,10 +656,9 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 		}
 		
 		auto hashes = hashList.getRange(firstHash,numHashesInWrite);
-		bool shouldUpdateHashList = false;
+		std::vector<shared_ptr<hash>> hashesToRemoveFromFile;
 		for (auto & writeHash: hashes) {
 			_ASSERT(writeHash!=nullptr);
-			
 			if(offset < myFileOffset+ chunkSize && size > 0) {
 				auto newOffset = std::max(offset - myFileOffset, (my_off_t)0);//Determine the offset to start the read from.
 				auto newSize = std::min(size,(my_size_t)chunkSize-newOffset);
@@ -656,29 +667,31 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 				offsetInBuf += newSize;
 				size -= newSize;
 				if(newHsh) {
-					writeHash->decRefCnt();
+					hashesToRemoveFromFile.push_back(writeHash);
 					newHsh->incRefCnt();
-					++numHashWrites;
-					FS->srvDEBUG("t_file::write: updated hash: ",writeHash->getHashStr(),writeHash->getBucketIndex().fullindex," to: ",newHsh->getHashStr(),newHsh->getBucketIndex().fullindex);
 					writeHash = newHsh;
-					shouldUpdateHashList = true;
 				}
 				//_ASSERT(writeHash->getRefCnt()>0);
 			}
 			myFileOffset += chunkSize;
 		}
 		_ASSERT(size==0);
-		if(shouldUpdateHashList) {
-			_ASSERT(hashList.updateRange(firstHash,hashes)==true);
+		if(hashesToRemoveFromFile.empty()==false) {
+			FS->srvDEBUG("file::write: updating ",hashesToRemoveFromFile.size()," hashes");
+			numHashWrites += hashesToRemoveFromFile.size(); //Keep track of hash writes to know when to rest the file
+			_ASSERT(hashList.updateRange(firstHash,hashes)==true); //Update the hashes in this write with the new versions
+			for(auto i: hashesToRemoveFromFile) {
+				i->decRefCnt();
+			}
 		}
 		INode()->mtime = currentTime();
 	} catch(std::exception & e) {
-		FS->srvERROR("t_file::write: ERROR: ",e.what());
+		FS->srvERROR("file::write: ERROR: ",e.what());
 		return 0;
 	}
 	
 	if(offsetInBuf!=(my_off_t)originalSize) {
-		FS->srvWARNING(" write call offsetInBuf!=originalSize (",offsetInBuf,",",originalSize,") :",path," originalSize:",originalSize," offset:",offset);
+		FS->srvWARNING("file::write: offsetInBuf!=originalSize (",offsetInBuf,",",originalSize,") :",path," originalSize:",originalSize," offset:",offset);
 	}
 	
 	if (numHashWrites.load() > (script::int_t)(chunksInBucket * 5)) {
@@ -847,18 +860,18 @@ bool file::validate_ownership(const context * ctx,my_mode_t newMode) {
 
 bool file::readDirectoryContent(script::complextypePtr out) {
 	if(type()==fileType::DIR) {
+		//lckunique l(_mut);
 		if(size()) {
 			str content;
 			content.resize(size());
 			if(read(reinterpret_cast<uint8_t*>(&content[0]),size(),0)!=(int)content.size()) {
-				FS->srvERROR("Failed to read directory for:",path);
+				FS->srvERROR("Failed to read directory:",path);
 				return false;
 			}
-			FS->srvDEBUG("directory: ",content, " loaded from: ",path);
 			try{
 				out->unserialize(content);
 			} catch(std::exception & e) {
-				FS->srvERROR("Failed to unserialize directory file for:",path," error: ",e.what());
+				FS->srvERROR("Failed to parse directory:",path," error: ",e.what()," content:",content);
 				return false;
 			}
 		}
@@ -866,10 +879,12 @@ bool file::readDirectoryContent(script::complextypePtr out) {
 	return true;
 }
 bool file::writeDirectoryContent (script::complextypePtr in) {
-	auto content = in->serialize(1);
+	lckunique l(_mut);
+	auto content = in->serialize(0);
 	if(content.size()==2) {
 		content.clear();
 	}
+	
 	if(content.empty()==false) {
 		FS->srvDEBUG("directory: ",content, " to: ",path);
 		if(write(reinterpret_cast<uint8_t*>(&content[0]),content.size(),0)!=(int)content.size()) {
@@ -881,6 +896,10 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 	}
 	truncate(content.size());
 	rest();
+	/*if(!readDirectoryContent(script::ComplexType::newComplex())) {
+		FS->srvERROR("Failed to read directory right after write! directory: ",path);
+	}*/
+	
 	return true;
 }
 
