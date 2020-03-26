@@ -108,7 +108,6 @@ namespace filesystem{
 		metaPtr createCtd(inode * prevNode, bool forMeta);
 		metaPtr createCtd(inode_ctd * prevNode);
 		void storeInode(metaPtr in);
-		void storeInodeCtd(metaPtr in);
 	public:
 
 
@@ -151,7 +150,6 @@ namespace filesystem{
 		//std::shared_ptr<hash> loadHash(bucketIndex_t id);
 		
 		
-		void removeHash(const crypto::sha256sum &in, bucketIndex_t bucket);
 		std::shared_ptr<hash> newHash(const crypto::sha256sum & in,std::shared_ptr<chunk> c);
 		hashPtr zeroHash();
 		

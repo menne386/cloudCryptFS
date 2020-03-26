@@ -350,7 +350,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		rootChunk->as<inode>()->metasize.store((uint32_t)metaString.size());
 		std::copy(metaString.begin(),metaString.end(),&metaChunk->as<inode_ctd>()->charContent[0]);
 		storeInode(rootChunk);
-		storeInodeCtd(metaChunk);
+		storeInode(metaChunk);
 		metaBuckets->getBucket(1)->store();
 		buckets->getBucket(1)->store();
 	} else {
@@ -564,7 +564,7 @@ metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 			auto c = chunk::newChunk(0,nullptr);
 			auto in = c->as<inode_ctd>()->myID = metaBuckets->accounting->fetch();
 			prevNode->metaID = in;
-			storeInodeCtd(c);
+			storeInode(c);
 		}
 		return inoToChunk(prevNode->metaID);
 	}
@@ -573,7 +573,7 @@ metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 		auto c = chunk::newChunk(0,nullptr);
 		auto in = c->as<inode_ctd>()->myID = metaBuckets->accounting->fetch();
 		prevNode->nextID = in;
-		storeInodeCtd(c);
+		storeInode(c);
 	}
 	return inoToChunk(prevNode->nextID);
 }
@@ -584,20 +584,30 @@ metaPtr fs::createCtd(inode_ctd * prevNode) {
 		auto c = chunk::newChunk(0,nullptr);
 		auto in = c->as<inode_ctd>()->myID = metaBuckets->accounting->fetch();
 		prevNode->nextID = in;
-		storeInodeCtd(c);
+		storeInode(c);
 	}
 	return inoToChunk(prevNode->nextID);	
 }
 
 void fs::storeInode(metaPtr in) {
-	auto idx = in->as<inode>()->myID;
-	metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
+	auto inodeType = in->as<inode_header_only>()->header.type;
+	_ASSERT(inodeType == inode_type::NODE || inodeType == inode_type::CTD);
+	switch(inodeType) {
+		case inode_type::NODE:{
+			auto idx = in->as<inode>()->myID;
+			metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
+		}
+		break;
+		case inode_type::CTD:{
+			auto idx = in->as<inode_ctd>()->myID;
+			metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);			
+		}
+		break;
+		default: 
+		break;
+	}
 }
 
-void fs::storeInodeCtd(metaPtr in) {
-	auto idx = in->as<inode_ctd>()->myID;
-	metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
-}
 
 
 filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
@@ -997,12 +1007,6 @@ std::shared_ptr<hash> fs::getHash(const bucketIndex_t& in) {
 	return hsh;
 }*/
 
-void fs::removeHash(const crypto::sha256sum & in, bucketIndex_t bucket) {
-	if (buckets->hashesIndex.erase(in) == 1) {
-		//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
-		buckets->accounting->post(bucket);
-	}
-}
 
 std::shared_ptr<hash> fs::newHash(const crypto::sha256sum & in,std::shared_ptr<chunk> c) {
 	//should check if this hash already exists in the filesystem:
