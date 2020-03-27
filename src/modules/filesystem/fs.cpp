@@ -686,7 +686,21 @@ filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * e
 	}
 	
 	metaPtr node = inoToChunk(i);
-	_ASSERT(node->as<inode>()->myID.fullindex == i.fullindex);
+	if(node->as<inode_header_only>()->header.type!=inode_type::NODE) {
+		srvWARNING("Node ",i.fullindex," when loaded is not a node!");
+		if(errcode) {
+			*errcode = EE::entity_not_found;
+		}
+		return specialfile_error;
+	}
+	auto myID = node->as<inode>()->myID.fullindex;
+	if(myID != i) {
+		srvWARNING("Node ",i.fullindex," when loaded reports as ",myID);
+		if(errcode) {
+			*errcode = EE::entity_not_found;
+		}
+		return specialfile_error;
+	}
 	//if(errcode) {
 	//	errcode[0] = getParentAndChild(filename,parent,child,childname,pPerm);
 	//}
