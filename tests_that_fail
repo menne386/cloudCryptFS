@@ -3,5 +3,5 @@
 #This corrupted files on the filesystem, Fixed in 9e1e6e712f
 ./multi_run.sh -n 1 create_read truncate/05.t 
 
-#Corruption on both files and directories once or twice in 20 tests:
+#Corruption on both files and directories couple of times in 20 tests: (perhaps re-apply 5da504386b222b9d42b7a2b0d4bb0c99cebf092a?)
 ./multi_run.sh -n 20 create_read fstest dedup
