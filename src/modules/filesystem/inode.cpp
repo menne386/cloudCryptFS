@@ -4,6 +4,7 @@
 #define FILESYSTEM_INODE_CPP
 #include "inode.h"
 #include "modules/util/endian.h"
+#include "fs.h"
 using namespace filesystem;
 
 
@@ -23,6 +24,9 @@ void filesystem::inode::assertTypeValid() {
 		_ASSERT(gid.is_lock_free());
 		
 	}
+	if(mytype!=header.type) {
+		FS->srvERROR((uint32_t)header.type ,"!=",(uint32_t)mytype);
+	}
 	_ASSERT(header.type==mytype);
 }
 
@@ -31,9 +35,9 @@ void filesystem::inode_ctd::assertTypeValid() {
 		header.type = mytype;
 		header.version = latestversion;
 	}
-	/*if(mytype!=header.type) {
-		CLOG((uint32_t)header.type ,"!=",(uint32_t)mytype);
-	}*/
+	if(mytype!=header.type) {
+		FS->srvERROR((uint32_t)header.type ,"!=",(uint32_t)mytype);
+	}
 	_ASSERT(header.type==mytype);
 }
 

@@ -882,7 +882,7 @@ bool file::readDirectoryContent(script::complextypePtr out) {
 			try{
 				out->unserialize(content);
 			} catch(std::exception & e) {
-				FS->srvERROR("Failed to parse directory:",path," error: ",e.what()," content:",content);
+				FS->srvERROR("parse dir failed:",path," e: ",e.what()," c:<<",content,">> csize:",content.size());
 				return false;
 			}
 		}
@@ -897,9 +897,9 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 	}
 	
 	if(content.empty()==false) {
-		FS->srvDEBUG("directory: ",content, " to: ",path);
+		//FS->srvDEBUG("directory: ",content, " to: ",path);
 		if(write(reinterpret_cast<uint8_t*>(&content[0]),content.size(),0)!=(int)content.size()) {
-			FS->srvERROR("Failed to write directory: ",path);
+			FS->srvERROR("write dir failed:",path," c:<<",content,">> csize:",content.size());
 			return false;
 		}
 	} else {
