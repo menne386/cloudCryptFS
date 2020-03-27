@@ -449,7 +449,7 @@ void file::storeHashes(void) {
 			auto c = metaChunk;
 			auto nextId = c->as<inode>()->nextID;	
 			unsigned newMetaChunks = 0;
-			for(auto H:hashes) {
+			for(auto & H:hashes) {
 				_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
 				if(imax==inode::numctd) {
 					//We are loading from an inode
@@ -522,7 +522,7 @@ void file::truncate(my_off_t newSize) {
 		expected = hashList.getSize()-newNum;
 		toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
 		_ASSERT(toDelete.size()==expected);
-		for (auto deleteHash : toDelete) {
+		for (auto & deleteHash : toDelete) {
 			if(deleteHash) {
 				--expected;
 				deleteHash->decRefCnt();
@@ -750,7 +750,7 @@ bool file::rest() {
 	auto toRest = hashList.getRange(0,hashList.getSize());
 	
 	size_t num = 0;
-	for(auto i: toRest) {
+	for(auto & i: toRest) {
 		if(i->rest()) {
 			++num;
 		}

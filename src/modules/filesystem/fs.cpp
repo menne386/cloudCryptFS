@@ -64,7 +64,7 @@ bucketInfo::bucketInfo(crypto::protocolInterface * p, bool isMeta) {
 void bucketInfo::clear(void) {
 	FS->srvMESSAGE("Clearing ",meta?"meta":""," hashes");
 	auto hl = hashesIndex.list();
-	for(auto i: hl) {
+	for(auto & i: hl) {
 		if(i) {
 			i->rest();
 		}
@@ -75,7 +75,7 @@ void bucketInfo::clear(void) {
 	FS->srvMESSAGE("Clearing ",meta?"meta":""," buckets");
 	auto l = loaded.list();
 	//for()
-	for(auto i: l) {
+	for(auto & i: l) {
 		for(my_size_t a=0;a<chunksInBucket;a++) {
 			auto hsh = i->getHash(a);
 			if(hsh) {
@@ -481,7 +481,7 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 	root->setMetaProperty("encryptionKey",key);
 	root->storeMetaProperties();
 	root->rest();
-	for(auto bb:metaBuckets->loaded.clone()) {
+	for(auto & bb:metaBuckets->loaded.clone()) {
 		srvMESSAGE("Converting meta bucket ",bb.first);
 		auto newFn = getBucketFilename(bb.first,true,newProtocol.get());
 		auto newBucket = std::make_unique<bucket>(newFn,newProtocol->getProtoEncryptionKey(),newProtocol.get());
@@ -492,7 +492,7 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 		bb.second->clearCache();
 		metaBuckets->loaded.insert(bb.first,bb.second);
 	}
-	for(auto bb:buckets->loaded.clone()) {
+	for(auto & bb:buckets->loaded.clone()) {
 		srvMESSAGE("Converting bucket ",bb.first);
 		auto newFn = getBucketFilename(bb.first,false,newProtocol.get());
 		auto newBucket = std::make_unique<bucket>(newFn,newProtocol->getEncryptionKey(),newProtocol.get());
@@ -538,7 +538,7 @@ void fs::storeMetadata(void) {
 		}
 		srvDEBUG("storing metaBucket data");
 		auto mbl = metaBuckets->loaded.list();
-		for(auto i:mbl) {
+		for(auto & i:mbl) {
 			if(i) {
 				i->store();//store operation will keep everything in memory but stores a copy to dsk.
 			}
@@ -546,7 +546,7 @@ void fs::storeMetadata(void) {
 		
 		srvDEBUG("clearing bucket data");
 		auto bl = buckets->loaded.list();
-		for(auto i:bl) {
+		for(auto & i:bl) {
 			i->store();//store operation will keep everything in memory but stores a copy to dsk.
 			i->clearCache(); //clearCache operation will release memory
 		}
@@ -1130,7 +1130,7 @@ str fs::getStats() {
 	uint64_t hashesInMem = 0;
 	std::map<str,int64_t> hashDistribution;
 	uint64_t numDedupKbs = 0;
-	for(auto hsh: buckets->hashesIndex.list()) {
+	for(auto & hsh: buckets->hashesIndex.list()) {
 		if(hsh->hasData()) {
 			hashesInMem ++;
 		}
@@ -1153,7 +1153,7 @@ str fs::getStats() {
 	unsigned freeINodes = 0;
 	unsigned dirs=0,files=0,links=0,fifo=0,unknown = 0;
 	
-	for(auto b: metaBuckets->loaded.list()) {
+	for(auto & b: metaBuckets->loaded.list()) {
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			auto C = b->getChunk(a);
 			auto type = C->as<inode_header_only>()->header.type;
@@ -1226,7 +1226,7 @@ my_off_t fs::readMetadata(unsigned char* buf, my_size_t size, my_off_t offset) {
 
 	my_off_t offsetInBuf = 0;
 	my_off_t actualOffset = 0;
-	for(auto it: metaBuckets->loaded.list()) {
+	for(auto & it: metaBuckets->loaded.list()) {
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			if(offset>= actualOffset && offset<actualOffset+chunkSize) {
 				auto newSize = std::min(std::min(size,(my_size_t)((actualOffset+chunkSize) - offset)),(my_size_t)chunkSize);
