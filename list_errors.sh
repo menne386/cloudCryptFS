@@ -4,8 +4,8 @@
 # license that can be found in the LICENSE file.
 
 echo "Passed:"
-grep -H "PASS" test/run*/log.txt
+grep -Hc "PASS" test/run*/log.txt
 echo "Warnings & Errors & Fails:"
-grep -H "WARNING\|ERROR\|FAIL" test/run*/log.txt
+grep -H "WARNING\|ERROR\|FAIL" test/run*/log.txt | sort -u
 echo "Coredumps:"
 ls test/run*/core* -lha 2>/dev/null
