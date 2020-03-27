@@ -218,12 +218,13 @@ fs::~fs() {
 	if(root)root->rest();
 	pathInodeCache.clear();
 	inodeFileCache.clear();
-	for (auto& h : openHandles) {
+	for (auto& hh : openHandles) {
+		filePtr h = hh;
 		if (h) {
 			if(h->rest()) {
 				srvWARNING(h->getPath()," was still open!");
 			}
-			h.reset();
+			hh=filePtr();
 		}
 	}
 	root.reset();
@@ -407,7 +408,8 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	std::vector<permission> pPerm;
 	root = make_shared<file>(rootChunk,"/",pPerm);
 	pathInodeCache["/"] = rootIndex;
-	inodeFileCache[rootIndex] = root;
+	inodeFileCache.insert(rootIndex,root);
+	//inodeFileCache[rootIndex] = root;
 
 	
 	specialfile_error = std::make_shared<file>(chunk::newChunk(0,nullptr),"",pPerm);
@@ -609,7 +611,7 @@ void fs::storeInode(metaPtr in) {
 
 filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 	if(H> 0 && H <openHandles.size()) {
-		auto handle = std::atomic_load(&openHandles[H]);
+		filePtr handle = openHandles[H];
 		if(handle!=nullptr) {
 			//srvDEBUG("Using handle for ",handle->getPath());
 			return handle;
@@ -677,10 +679,9 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 
 filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * errcode,const std::vector<permission> & pPerm) {
 	{
-		lckguard l(_mut);
-		auto fileItr = inodeFileCache.find(i);
-		if(fileItr!=inodeFileCache.end()) {
-			return fileItr->second;
+		auto fPtr = inodeFileCache.get(i);
+		if(fPtr) {
+			return fPtr;
 		}
 	}
 	
@@ -694,11 +695,9 @@ filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * e
 	filePtr NF = std::make_shared<file>(node,filename,pPerm);
 	if(str(filename)=="/._stats") {NF->setSpecialFile(specialFile::STATS);}
 	if(str(filename)=="/._meta") {NF->setSpecialFile(specialFile::METADATA);}
-	{
-		lckguard l(_mut);
-		inodeFileCache[i] = NF;
+	
+	inodeFileCache.insert(i,NF);
 		//CLOG("Inserting into cache: ",myFN,child->serialize(1));
-	}
 	
 	return NF;
 	
@@ -707,8 +706,8 @@ filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * e
 fileHandle fs::open(filePtr F) {
 	//@todo: should warn when clearing inodeToFile cache that files can be open!
 	for(fileHandle a=1;a<openHandles.size();a++) {
-		if(std::atomic_load(&openHandles[a]).get()==nullptr) {
-			std::atomic_store(&openHandles[a],F);
+		if(openHandles[a].load()==nullptr) {
+			openHandles[a]=F;
 			return a;
 		}
 	}
@@ -717,10 +716,9 @@ fileHandle fs::open(filePtr F) {
 }
 void fs::close(filePtr F,fileHandle H) {
 	if(H>0 && H < openHandles.size()) {
-		auto handle = std::atomic_load(&openHandles[H]);
+		filePtr handle = openHandles[H];
 		if(handle.get() == F.get()) {
-			filePtr E = nullptr;
-			std::atomic_store(&openHandles[H],E);
+			openHandles[H] = filePtr();
 		} else {
 			srvWARNING("Failed to close fileHandle for: ",F->getPath());
 		}
@@ -1102,8 +1100,8 @@ my_err_t fs::hardlink(const char * linktarget,const char * linkname, const conte
 
 my_size_t fs::evictCache(const char * ipath) {
 	lckguard l(_mut);
-	for(auto & i: inodeFileCache) {
-		i.second->rest();
+	for(auto & i: inodeFileCache.list()) {
+		i->rest();
 	}
 	
 	pathInodeCache.clear();
