@@ -225,6 +225,7 @@ static int release_callback(const char *path, struct fuse_file_info *fi) {
 	if(F->valid()) {
 		F->close();
 		FS->close(F,fi->fh);
+		fi->fh = 0;
 		return 0;
 	} 
 	return -ENOENT;	

@@ -183,7 +183,7 @@ shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
 
 
 
-fs::fs() :  service("FS") ,zeroChunk(chunk::newChunk(0,nullptr)), zeroSum(zeroChunk->getHash()){
+fs::fs() :  service("FS") ,zeroChunk(chunk::newChunk(0,nullptr)), zeroSum(zeroChunk->getHash()), zeroHash(std::make_shared<hash>(zeroSum, bucketIndex_t(), 0, zeroChunk,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD)){
 	outstandingChanges=0;
 	bucketIndex_t z;
 	z.index = 1;
@@ -614,7 +614,7 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 	if(H> 0 && H <openHandles.size()) {
 		auto handle = std::atomic_load(&openHandles[H]);
 		if(handle!=nullptr) {
-			srvDEBUG("Using handle for ",handle->getPath());
+			//srvDEBUG("Using handle for ",handle->getPath());
 			return handle;
 		}
 	}
@@ -1037,9 +1037,6 @@ std::shared_ptr<hash> fs::newHash(const crypto::sha256sum & in,std::shared_ptr<c
 }
 
 hashPtr fs::zeroHash() {
-	if(_zeroHash==nullptr) {
-		_zeroHash = newHash(zeroSum,zeroChunk);
-	} 
 	return _zeroHash;
 }
 

@@ -36,7 +36,8 @@ script::int_t hash::getRefCnt() {
 
 script::int_t hash::incRefCnt() {
 	++refcnt;
-	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE|FLAG_DELETED)==false) {
+	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE)==false) {
+		_ASSERT(isFlags(FLAG_DELETED)==false);//Never revide a dead hash!
 		FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	}
 	return refcnt;
@@ -47,11 +48,15 @@ script::int_t hash::decRefCnt() {
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE|FLAG_DELETED)==false) {
 		if (refcnt == 0) {
 			setFlags(FLAG_DELETED);
+			auto hsh = FS->buckets->hashesIndex.get(_hsh);
+			_ASSERT(hsh.get()==this);
 			if (FS->buckets->hashesIndex.erase(_hsh) == 1) {
 				//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
 				FS->buckets->accounting->post(bucketIndex);
+			} else {
+				FS->srvERROR("Failed to delete hash ",_hsh.toShortStr(), " from global index");
 			}
-			std::atomic_store(&_data,std::shared_ptr<chunk>());
+			clearData();
 		}
 		FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	}
@@ -61,18 +66,23 @@ script::int_t hash::decRefCnt() {
 bool hash::compareChunk(shared_ptr<chunk> c) {
 	auto d = data(true);
 	_ASSERT(d!=nullptr);
-	
 	return d->compareChunk(c);
 }
 
 std::shared_ptr<chunk> hash::data(bool load) {
-	auto ret = std::atomic_load(&_data);
-	if(ret==nullptr && isFlags(FLAG_NOAUTOLOAD)==false) {
+	std::shared_ptr<chunk> ret = _data;
+	if(ret==nullptr && isFlags(FLAG_NOAUTOLOAD)==false && load) {
 		ret = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
-		std::atomic_store(&_data,ret);
+		_data = ret;
 	}
 	return ret;
 }
+void hash::clearData() {
+	if(isFlags(FLAG_NOAUTOSTORE) == false) {
+		_data = std::shared_ptr<chunk>();
+	}
+}
+bool hash::hasData() { return _data.load()!=nullptr; }
 
 
 filesystem::hash::hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt, std::shared_ptr<chunk> idata, flagtype iflags): _hsh(ihash),bucketIndex(ibucket),refcnt(irefcnt), _data(idata) ,flags(iflags){
@@ -110,7 +120,7 @@ bool hash::rest(void) {
 		if (refcnt > 0 && isFlags(FLAG_DELETED|FLAG_NOAUTOSTORE) == false) {
 			FS->buckets->getBucket(bucketIndex.bucket)->putChunk(bucketIndex.index, d);
 		}
-		std::atomic_store(&_data,std::shared_ptr<chunk>());
+		clearData();
 		return true;
 	}
 	return false;

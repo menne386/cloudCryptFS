@@ -4,6 +4,7 @@
 #ifndef FILESYSTEM_HASH_H
 #define FILESYSTEM_HASH_H
 #include "modules/script/script_complex.h"
+#include "modules/util/atomic_shared_ptr.h"
 #include "modules/crypto/sha256.h"
 #include "types.h"
 #include <atomic>
@@ -37,7 +38,7 @@ namespace filesystem {
 		crypto::sha256sum _hsh;
 		bucketIndex_t bucketIndex;
 		std::atomic<script::int_t> refcnt;		
-		std::shared_ptr<chunk> _data;
+		util::atomic_shared_ptr<chunk> _data;
 		std::atomic<flagtype> flags;
 		void clearFlags(flagtype in);
 		void setFlags(flagtype in);
@@ -60,7 +61,8 @@ namespace filesystem {
 		bool compareChunk(shared_ptr<chunk> c);
 		
 		std::shared_ptr<chunk> data(bool load=false);
-		bool hasData() { return data()!=nullptr; }
+		void clearData();
+		bool hasData();
 		
 		
 		hash(const crypto::sha256sum & ihash, const bucketIndex_t ibucket, const script::int_t irefcnt ,std::shared_ptr<chunk> idata, flagtype iflags = 0);

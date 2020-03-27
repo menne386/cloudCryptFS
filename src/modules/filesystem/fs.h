@@ -72,7 +72,7 @@ namespace filesystem{
 		locktype _mut;
 		std::unordered_map<str,bucketIndex_t> pathInodeCache;
 		std::unordered_map<const bucketIndex_t,filePtr> inodeFileCache;
-		std::array<filePtr,maxOpenFiles> openHandles;
+		std::array<filePtr,maxOpenFiles> openHandles;//@todo: should use util::atomic_shared_ptr
 		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx);
 		str _path;
 		

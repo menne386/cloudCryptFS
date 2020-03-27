@@ -451,6 +451,7 @@ void file::storeHashes(void) {
 			unsigned newMetaChunks = 0;
 			for(auto & H:hashes) {
 				_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
+				_ASSERT(H->getRefCnt()>0);
 				if(imax==inode::numctd) {
 					//We are loading from an inode
 					c->as<inode>()->ctd[idx] = H->getBucketIndex();
@@ -503,6 +504,8 @@ void file::updateTimesWith(bool A,bool C, bool M,const timeHolder & t) {
 void file::truncate(my_off_t newSize) {
 	//No locking required as it only updates atomic metaData & works with the atomic hashList.
 	if(_type!=specialFile::REGULAR) return ;
+	lckunique l(_mut);//@todo: test locking for this operation, somehow truncating a file can change the md5 of another file!!
+	
 	FS->srvDEBUG("file::truncate: ", path, " to ", newSize);
 	std::vector<hashPtr> toDelete;
 	timeHolder tv = currentTime();
@@ -523,7 +526,8 @@ void file::truncate(my_off_t newSize) {
 		toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
 		_ASSERT(toDelete.size()==expected);
 		for (auto & deleteHash : toDelete) {
-			if(deleteHash) {
+			//@todo: && deleteHash.get() != FS->zeroHash().get() ??? research required!
+			if(deleteHash ) {
 				--expected;
 				deleteHash->decRefCnt();
 				deleteHash->rest(); //This will store the hash, or, will delete it altogether.
@@ -755,7 +759,7 @@ bool file::rest() {
 			++num;
 		}
 	}
-	FS->srvDEBUG("file::rest ",num," for ", path);
+	FS->srvDEBUG("file::rest ",num,"/",toRest.size()," for ", path);
 	toRest.clear();
 	storeHashes();
 	return num>0;
@@ -860,7 +864,7 @@ bool file::validate_ownership(const context * ctx,my_mode_t newMode) {
 
 bool file::readDirectoryContent(script::complextypePtr out) {
 	if(type()==fileType::DIR) {
-		//lckunique l(_mut);
+		lckunique l(_mut);
 		if(size()) {
 			str content;
 			content.resize(size());
@@ -895,6 +899,7 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 		FS->srvDEBUG("empty directory to: ",path);
 	}
 	truncate(content.size());
+	
 	rest();
 	/*if(!readDirectoryContent(script::ComplexType::newComplex())) {
 		FS->srvERROR("Failed to read directory right after write! directory: ",path);

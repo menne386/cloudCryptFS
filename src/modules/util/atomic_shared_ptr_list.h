@@ -76,7 +76,7 @@ private:
 	std::atomic<size_t> _size;
 };
 
-};
+};//Namespace util
 
 
 #endif
