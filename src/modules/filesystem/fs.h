@@ -108,8 +108,11 @@ namespace filesystem{
 		metaPtr createCtd(inode * prevNode, bool forMeta);
 		metaPtr createCtd(inode_ctd * prevNode);
 		void storeInode(metaPtr in);
+		
 	public:
-
+		static constexpr bucketIndex_t rootIndex{1,0};
+		static constexpr bucketIndex_t metaIndex{1,1};
+		
 
 		srvSTATICDEFAULTNEWINSTANCE( fs );
 			fs();

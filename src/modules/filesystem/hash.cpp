@@ -52,6 +52,7 @@ script::int_t hash::decRefCnt() {
 			_ASSERT(hsh.get()==this);
 			if (FS->buckets->hashesIndex.erase(_hsh) == 1) {
 				//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
+				FS->buckets->getBucket(bucketIndex.bucket)->putHash(bucketIndex.index,nullptr);
 				FS->buckets->accounting->post(bucketIndex);
 			} else {
 				FS->srvERROR("Failed to delete hash ",_hsh.toShortStr(), " from global index");

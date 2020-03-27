@@ -383,7 +383,7 @@ void file::loadHashes(void) {
 		if(size()%chunkSize>0) {
 			++numHashes;
 		}
-		hashList.truncateAndReturn(numHashes,FS->zeroHash());
+		hashList.truncateAndReturn(numHashes,FS->zeroHash()).size();
 		auto imax = inode::numctd;
 		uint64_t idx = 0;
 		auto c = metaChunk;
@@ -423,7 +423,11 @@ void file::loadHashes(void) {
 			}
 		}
 		if(numHashes) {
+			
 			FS->srvWARNING(numHashes," missing hashes for file:",path);
+			for(size_t a =0;a<numHashes;a++) {
+				FS->zeroHash()->incRefCnt();
+			}
 		}
 		_ASSERT(hashList.updateRange(0,hashes)==true);
 	}
@@ -451,7 +455,10 @@ void file::storeHashes(void) {
 			unsigned newMetaChunks = 0;
 			for(auto & H:hashes) {
 				_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
-				_ASSERT(H->getRefCnt()>0);
+				if(H->getRefCnt()<=0) {
+					FS->srvERROR("storeHashes is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex().fullindex);
+				}
+				//_ASSERT(H->getRefCnt()>0);
 				if(imax==inode::numctd) {
 					//We are loading from an inode
 					c->as<inode>()->ctd[idx] = H->getBucketIndex();

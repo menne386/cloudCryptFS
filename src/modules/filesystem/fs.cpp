@@ -110,6 +110,7 @@ void bucketInfo::loadHashesFromBucket(uint64_t id) {
 		//unsigned numInner  = 0;
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			auto hsh = hb->getHash(a);
+			const bucketIndex_t b{id,a};
 			if(hsh!=nullptr ) {
 				
 				//++numInner;
@@ -118,20 +119,14 @@ void bucketInfo::loadHashesFromBucket(uint64_t id) {
 					const auto hshIdx = hsh->getBucketIndex();
 					hashesIndex.insert(hshStr,hsh);
 					//CLOG("loading hash: ",hshIdx.fullindex," for ",meta?"meta":"data"," : ",reinterpret_cast<uint64_t>(hsh.get())," this:",reinterpret_cast<uint64_t>(this)," str:",hshStr.toLongStr());
-					bucketIndex_t expected;
-					expected.bucket = id;
-					expected.index = a;
-					_ASSERT(expected.fullindex == hshIdx.fullindex);
+					_ASSERT(b == hshIdx);
 					_ASSERT(hsh->getRefCnt()>0);
 					++numLoaded;
 				} else {
 					auto chunk = hb->getChunk(a);
 					_ASSERT(chunk!=nullptr);
 					if(chunk->as<inode_header_only>()->header.type==inode_type::NONE) {
-						bucketIndex_t b;
-						b.bucket = id;
-						b.index = a;
-						postList.push_back(b);						
+						postList.push_back(b);
 					} else {
 						++numLoaded;
 					}
@@ -139,10 +134,9 @@ void bucketInfo::loadHashesFromBucket(uint64_t id) {
 					
 				}
 			} else {
-				bucketIndex_t b;
-				b.bucket = id;
-				b.index = a;
-				postList.push_back(b);
+				if(!(b==fs::rootIndex && meta == false)) {
+					postList.push_back(b);
+				}
 			}
 		}
 		
@@ -183,7 +177,7 @@ shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
 
 
 
-fs::fs() :  service("FS") ,zeroChunk(chunk::newChunk(0,nullptr)), zeroSum(zeroChunk->getHash()), zeroHash(std::make_shared<hash>(zeroSum, bucketIndex_t(), 0, zeroChunk,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD)){
+fs::fs() :  service("FS") ,zeroChunk(chunk::newChunk(0,nullptr)), zeroSum(zeroChunk->getHash()), _zeroHash(std::make_shared<hash>(zeroSum, bucketIndex_t{1,0}, 1, zeroChunk,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD)){
 	outstandingChanges=0;
 	bucketIndex_t z;
 	z.index = 1;
@@ -317,11 +311,10 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	buckets = make_unique<bucketInfo>(protocol.get(),false);
 	metaBuckets = make_unique<bucketInfo>(protocol.get(),true);
+	buckets->hashesIndex.insert(zeroSum,_zeroHash);
 	
 	auto metaInfo = ComplexType::newComplex();
 	const bool foundFileSystem = (metaBuckets->getBucket(1)->getHash(0)!=nullptr);
-	bucketIndex_t rootIndex;rootIndex.bucket=1;rootIndex.index=0;
-	bucketIndex_t metaIndex;metaIndex.bucket=1;metaIndex.index=1;
 	if(mustCreate) {
 		//Create new filesystem
 		if(foundFileSystem) {
@@ -365,7 +358,6 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	metaBuckets->loadHashesFromBucket(1);
 	//instance root node
 	auto rootChunk = inoToChunk(rootIndex);
-	metaIndex = rootChunk->as<inode>()->metaID;
 	auto metaChunk = inoToChunk(metaIndex);
 
 	str metaString = loadMetaDataFromINode(rootChunk->as<inode>());
@@ -376,6 +368,14 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		srvERROR("Error unserializing metaInfo: ",e.what());
 		return false;
 	}
+	
+	srvMESSAGE("loading key from metadata");
+	//Load meta info from root node: (including key)
+	_ASSERT(protocol->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
+	
+	//Make sure the zeroHash has a place in a bucket.
+	buckets->getBucket(rootIndex.bucket)->putHash(rootIndex.index,_zeroHash);
+	
 	{
 		auto l = metaInfo->getSize("metaBuckets");
 		srvMESSAGE("loading ",l," metaBuckets");
@@ -390,9 +390,6 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		}
 		srvMESSAGE("Loaded ",metaBuckets->numLoaded," metaHashes from ",metaBuckets->loaded.size()," indices");
 	}
-	srvMESSAGE("loading key from metadata");
-	//Load meta info from root node: (including key)
-	_ASSERT(protocol->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
 	{
 		auto l = metaInfo->getSize("buckets");
 		srvMESSAGE("loading ",l," buckets");

@@ -25,9 +25,13 @@ namespace filesystem {
 				};
 				uint64_t fullindex;
 			};
+		explicit constexpr bucketIndex_t(uint64_t bck,uint64_t idx): index(idx),bucket(bck) {}
+		explicit constexpr bucketIndex_t(): fullindex(0) {}
+		explicit constexpr bucketIndex_t(uint64_t fullidx): fullindex(fullidx) {}
 		operator uint64_t() const { return fullindex; }
 		bool operator==(const bucketIndex_t& i) const {	return i.fullindex == fullindex; }
 	};
+	
 	
 
 	static_assert(sizeof(bucketIndex_t)==sizeof(uint64_t),"buckerIndex_t wrong size");
