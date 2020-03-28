@@ -58,6 +58,7 @@ namespace filesystem{
 		//std::vector<std::shared_ptr<hash>> hashes;
 		
 		std::atomic_int refs;
+		std::atomic_bool isDeleted;
 		bool requireType(fileType required);
 		void loadHashes(void);
 		void storeHashes(void);
@@ -69,13 +70,13 @@ namespace filesystem{
 		~file();
 		std::vector<permission> getPathPermissions() {return pathPermissions;};
 		bool isSpecial() { return _type!=specialFile::REGULAR; }
-		bool valid() {return _type!=specialFile::ERROR;}
+		bool valid() {return (_type!=specialFile::ERROR && isDeleted==false);}
 		std::shared_ptr<chunk> getMetaChunk() {return metaChunk;}
 
 		bool readDirectoryContent(script::complextypePtr out);
 		bool writeDirectoryContent(script::complextypePtr in);
 		
-		std::vector<bucketIndex_t> inoList();
+		std::vector<bucketIndex_t> setDeletedAndReturnAllUsedInodes();
 		void storeMetaProperties(void);
 		void setMetaProperty(const str & propertyname,const std::set<uint64_t> & in);
 		void setMetaProperty(const str & propertyname,script::complextypePtr in);

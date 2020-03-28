@@ -805,6 +805,10 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 	if(f->isSpecial()) {
 		return EE::access_denied;
 	}		
+	if(f.get()==root.get()) {
+		srvERROR("Attempt to unlink the root!");
+		return EE::access_denied;
+	}
 	srvDEBUG("unlink 2 ",filename);
 	filePtr fileToDelete;
 	
@@ -837,8 +841,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			srvDEBUG("shredding deleted file: ", fileToDelete->getPath());
 			fileToDelete->truncate(0);
 			fileToDelete->rest();
-			fileToDelete->setDeleted();
-			auto inoToDel = fileToDelete->inoList();
+			auto inoToDel = fileToDelete->setDeletedAndReturnAllUsedInodes();
 			bucketIndex_t i;
 			i.fullindex  = fileToDelete->ino();
 

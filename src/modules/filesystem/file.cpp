@@ -36,6 +36,7 @@ using script::ComplexType;
 file::file(specialFile intype):  extraMeta(ComplexType::newComplex()), metaChunk(chunk::newChunk(0,nullptr)){
 	_type = intype;
 	refs.store(0); 
+	isDeleted.store(false);
 	numHashWrites.store(0); 
 	numHashReads.store(0);
 	loadHashes();
@@ -45,6 +46,7 @@ file::file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<pe
 	extraMeta = ComplexType::newComplex();
 	loadHashes();
 	refs.store(0); 
+	isDeleted.store(false);
 	numHashWrites.store(0); 
 	numHashReads.store(0);
 	
@@ -62,8 +64,10 @@ file::~file() {
 
 
 
-std::vector<bucketIndex_t> filesystem::file::inoList() {
+std::vector<bucketIndex_t> filesystem::file::setDeletedAndReturnAllUsedInodes() {
 	lckunique l(_mut);//Locking required for INode list
+	
+	isDeleted.store(true); 
 
 	std::vector<bucketIndex_t> ret;
 	ret.push_back(INode()->myID);
@@ -93,10 +97,14 @@ std::vector<bucketIndex_t> filesystem::file::inoList() {
 		}
 	}
 	
-	
+	FS->srvDEBUG("Set ",path," isDeleted flag");
 	return ret;
 }
+
+
+
 void file::storeMetaProperties(void) {
+	if(!valid())return;
 	lckunique l(_mut); // Need lock to protect extraMeta variable
 	
 	if(INode()->myID.bucket) {
@@ -110,6 +118,7 @@ void file::storeMetaProperties(void) {
 }
 
 void file::setMetaProperty(const str & propertyname,const std::set<uint64_t> & in) {
+	if(!valid())return;
 	lckunique l(_mut); // Need lock to protect extraMeta variable
 	extraMeta->clearProperty(propertyname);
 	auto *arr = &extraMeta->getI(propertyname,0,in.size());
@@ -121,6 +130,7 @@ void file::setMetaProperty(const str & propertyname,const std::set<uint64_t> & i
 
 
 void file::setMetaProperty(const str & propertyname,script::complextypePtr in) {
+	if(!valid())return;
 	lckunique l(_mut); // Need lock to protect extraMeta variable
 	extraMeta->setOPtr(propertyname,0,in);
 }
@@ -286,6 +296,9 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 }
 
 my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx) {
+	if(!valid()) {
+		return EE::entity_not_found;
+	}
 	if(!validate_access(ctx,access::WX)) {
 		return EE::access_denied;
 	}
@@ -313,6 +326,9 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	return EE::ok;
 }
 my_err_t file::removeNode(const str & name,const context * ctx) {
+	if(!valid()) {
+		return EE::entity_not_found;
+	}
 	if(!validate_access(ctx,access::WX)) {
 		return EE::access_denied;
 	}
@@ -338,6 +354,9 @@ my_err_t file::removeNode(const str & name,const context * ctx) {
 	return EE::ok;
 }
 my_err_t file::hasNode(const str & name,const context * ctx,bucketIndex_t * id) {
+	if(!valid()) {
+		return EE::entity_not_found;
+	}
 	if(ctx && !validate_access(ctx,access::X)) {
 		return EE::access_denied;
 	}
@@ -443,6 +462,9 @@ void file::loadHashes(void) {
 	
 }
 void file::storeHashes(void) {
+	if(!valid()) {
+		return;
+	}
 	lckunique l(_mut); // This operation should not run in paralel. 
 
 	//meta->clearProperty("/hsh");
@@ -510,6 +532,9 @@ void file::updateTimesWith(bool A,bool C, bool M,const timeHolder & t) {
 
 
 void file::truncate(my_off_t newSize) {
+	if(!valid()) {
+		return;
+	}
 	//No locking required as it only updates atomic metaData & works with the atomic hashList.
 	if(_type!=specialFile::REGULAR) return ;
 	lckunique l(_mut);//@todo: test locking for this operation, somehow truncating a file can change the md5 of another file!!
@@ -551,6 +576,9 @@ void file::truncate(my_off_t newSize) {
 }
 
 my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
+	if(!valid()) {
+		return 0;
+	}
 	_ASSERT(buf != nullptr);
 	FS->_readStats.at(fs::classifySize(size))++;
 	//No locking required as this call only reads from atomic members.
@@ -628,6 +656,9 @@ my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
 	return offsetInBuf;
 }
 my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t offset) {
+	if(!valid()) {
+		return 0;
+	}
 	if(_type!=specialFile::REGULAR) return 0;
 	//CLOG("t_file::write: ",path," ",size," ",offset);
 
@@ -718,6 +749,9 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 
 
 bool file::readlnk(char * buffer, my_size_t bufferSize) {
+	if(!valid()) {
+		return false;
+	}
 	//No locking required as this only reads atomic metadata
 	if(_type!=specialFile::REGULAR) return false;
 	if(type()!=fileType::LNK) {
@@ -739,6 +773,9 @@ bool file::readlnk(char * buffer, my_size_t bufferSize) {
 
 
 bool file::isFullDir() {
+	if(!valid()) {
+		return false;
+	}
 	if(type()!=fileType::DIR) return false;
 
 	auto directory = script::ComplexType::newComplex();
@@ -757,6 +794,9 @@ bool file::isFullDir() {
 
 //This puts the file + it's data to rest so that it gets stored to hard disk.
 bool file::rest() {
+	if(!valid()) {
+		return false;
+	}
 	//No locking required as only calls are made to properly protected member functions
 	if (_type != specialFile::REGULAR) return false;
 	auto toRest = hashList.getAll();
@@ -775,6 +815,10 @@ bool file::rest() {
 
 
 bool file::validate_access(const context * ctx,access da,access dda,bool checkStickyOwner) {
+	if(!valid()) {
+		return false;
+	}
+	
 	if(ctx->uid==0) return true;
 	//No locking as pathPermissions is static data once file is instantiated.
 	bool stickySet = false;
@@ -854,6 +898,9 @@ bool file::validate_access(const context * ctx,access da,access dda,bool checkSt
 }
 
 bool file::validate_ownership(const context * ctx,my_mode_t newMode) {
+	if(!valid()) {
+		return false;
+	}
 	if(ctx->uid==0) {
 		return true;
 	}
@@ -871,6 +918,10 @@ bool file::validate_ownership(const context * ctx,my_mode_t newMode) {
 
 
 bool file::readDirectoryContent(script::complextypePtr out) {
+	if(!valid()) {
+		return false;
+	}
+	
 	if(type()==fileType::DIR) {
 		lckunique l(_mut);
 		if(size()) {
@@ -891,6 +942,10 @@ bool file::readDirectoryContent(script::complextypePtr out) {
 	return true;
 }
 bool file::writeDirectoryContent (script::complextypePtr in) {
+	if(!valid()) {
+		return false;
+	}
+	
 	lckunique l(_mut);
 	auto content = in->serialize(0);
 	if(content.size()==2) {
