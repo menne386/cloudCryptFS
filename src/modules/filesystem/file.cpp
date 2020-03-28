@@ -962,9 +962,11 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 	truncate(content.size());
 	
 	rest();
-	/*if(!readDirectoryContent(script::ComplexType::newComplex())) {
+	auto readback = script::ComplexType::newComplex();
+	if(!readDirectoryContent(readback)) {
 		FS->srvERROR("Failed to read directory right after write! directory: ",path);
-	}*/
+	}
+	FS->srvDEBUG("Read back written directory: ",readback->serialize(0));
 	
 	return true;
 }
