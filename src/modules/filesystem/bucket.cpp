@@ -28,13 +28,11 @@ const auto byteSizeHashes = (chunksInBucket * sizeof(serializedHash));
 
 void bucket::loadHashes(void) {
 	lckunique lck(_mut);
-	if(hashesLoaded) {
+	if(chunks.load()) {
 		return;
 	}
-
-	hashes.resize(chunksInBucket);
+	auto H = std::make_shared<bucketArray<hash>>();
 	
-
 	const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
 	auto cipher = util::getSystemString(filename,byteSizeChunks+byteSizeEncryptionOverhead);
 	if(cipher.empty()==false) {
@@ -52,28 +50,27 @@ void bucket::loadHashes(void) {
 		auto * ptr = reinterpret_cast<const serializedHash*>(cleartext.data());
 		
 		unsigned N = 0;
-		for(auto& h:hashes) {
+		for(auto& h: *H) {
 			//CLOG("ptr->refcnt:",ptr->refcnt);
 			if(ptr->refcnt>0) {
 				++N;
-				atomic_store(&h,std::make_shared<hash>(ptr->hash,ptr->bucket,ptr->refcnt,nullptr));
+				h = std::make_shared<hash>(ptr->hash,ptr->bucket,ptr->refcnt,nullptr);
 			}
 			ptr++;
 		}
 	}
-	hashesLoaded = hashes.size();
+	hashes = H;
 }
 
 
 void bucket::loadChunks(void) {
 	lckunique lck(_mut);
-	if(chunksLoaded) {
+	if(chunks.load()) {
 		return;
 	}
 	chunk base;
 
-	chunks.resize(chunksInBucket);
-
+	auto C = std::make_shared<bucketArray<chunk>>();
 	auto cipher = util::getSystemString(filename);
 	if(cipher.empty()==false) {
 		//CLOG("bucket::loadChunks: ",filename);
@@ -95,35 +92,33 @@ void bucket::loadChunks(void) {
 		auto * ptr = reinterpret_cast<const uint8_t*>(cleartext.data());
 		
 		if(loadFilter) {
-			for(auto & cptr:chunks) {
-				atomic_store(&cptr,loadFilter(base.write(0,chunkSize,ptr)));
+			for(auto & cptr: *C) {
+				cptr = loadFilter(base.write(0,chunkSize,ptr));
 				ptr+=chunkSize;
 			} 
 		} else {
-			for(auto & cptr:chunks) {
-				atomic_store(&cptr,base.write(0,chunkSize,ptr));
+			for(auto & cptr: *C) {
+				cptr = base.write(0,chunkSize,ptr);
 				ptr+=chunkSize;
 			} 
 		}
 		//CLOG("bucket::load_end: ",filename);
 	} else {
 		//CLOG("bucket::create: ",filename);
-		for(auto & cptr:chunks) {
-			atomic_store(&cptr,std::make_shared<chunk>());
+		for(auto & cptr: *C) {
+			cptr = std::make_shared<chunk>();
 		}
 	}
 
 	changesSinceLoad = 0;
-	chunksLoaded = chunks.size();
+	chunks = C;
 }
 bucket::bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protocolInterface * iprotocol) :filename(file), _key(ikey), _protocol(iprotocol){
 	changesSinceLoad = 0;
-	hashesLoaded = 0;
-	chunksLoaded = 0;
 }
 
 bucket::~bucket() {
-	if(chunksLoaded+hashesLoaded) {
+	if(chunks.load() || hashes.load()) {
 		store();
 	}
 }
@@ -131,57 +126,61 @@ bucket::~bucket() {
 void filesystem::bucket::del(void) {
 	changesSinceLoad = 0;
 	lckunique lck(_mut);
-	chunks.clear();
-	hashes.clear();
+	chunks = std::shared_ptr<bucketArray<chunk>>();
+	hashes = std::shared_ptr<bucketArray<hash>>();
+
 	remove(filename.c_str());
-	chunksLoaded = 0;
-	hashesLoaded = 0;
 	//CLOG("bucket::del: ", filename);
 }
 
 void filesystem::bucket::migrateTo(bucket * targetBucket) {
 	lckunique lck(_mut);
 	changesSinceLoad = 0;
-	if(chunksLoaded==0) {loadChunks();}
-	if(hashesLoaded==0) {loadHashes();}
-	targetBucket->chunks = std::move(chunks);
-	targetBucket->hashes = std::move(hashes);
+	if(chunks.load()==nullptr) {loadChunks();}
+	if(hashes.load()==nullptr) {loadHashes();}
+	targetBucket->chunks = chunks.load();
+	targetBucket->hashes = hashes.load();
+	chunks = std::shared_ptr<bucketArray<chunk>>();
+	hashes = std::shared_ptr<bucketArray<hash>>();
 	targetBucket->changesSinceLoad = 1000;
-	targetBucket->chunksLoaded = chunksLoaded.load();
-	targetBucket->hashesLoaded = hashesLoaded.load();
 }
 
 void filesystem::bucket::clearCache() {
-	lckunique lck(_mut);
-	chunksLoaded = 0;
-	chunks.clear();
+	chunks = std::shared_ptr<bucketArray<chunk>>();
 }
 
 std::shared_ptr<chunk> bucket::getChunk(int64_t id) {
-	if(!chunksLoaded) {loadChunks();}
-	return atomic_load(&chunks.at(id));
+	auto C = chunks.load();
+	if(!C) { loadChunks(); C = chunks.load(); }
+	_ASSERT(C!=nullptr);
+	return C->at(id);
 }
 
 void bucket::putChunk(int64_t id,std::shared_ptr<chunk> c) {
-	if(!chunksLoaded) {loadChunks();}
-	auto o = atomic_load(&chunks.at(id));
-	if(o.get() == c.get()) {
+	auto C = chunks.load();
+	if(!C) { loadChunks(); C = chunks.load(); }
+	_ASSERT(C!=nullptr);
+	if(C->at(id).load().get() == c.get()) {
 		//Chunk is already at this spot in the bucket: no changes are made
 		return;
 	}
 	++changesSinceLoad;
-	atomic_store(&chunks.at(id),c);
+	C->at(id) = c;
 }
 
 std::shared_ptr<hash> bucket::getHash(int64_t id) {
-	if(!hashesLoaded) {loadHashes();}
-	return atomic_load(&hashes.at(id));
+	auto H = hashes.load();
+	if(!H) {loadHashes(); H = hashes.load(); }
+	_ASSERT(H!=nullptr);
+	return H->at(id);
 }
 
 void bucket::putHash(int64_t id,std::shared_ptr<hash> c) {
-	if(!hashesLoaded) {loadHashes();}
+	auto H = hashes.load();
+	if(!H) {loadHashes(); H = hashes.load(); }
+	_ASSERT(H!=nullptr);
 	++changesSinceLoad;	
-	atomic_store(&hashes.at(id),c);
+	H->at(id) = c;
 }
 
 void bucket::putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::shared_ptr<chunk> c) {
@@ -199,7 +198,10 @@ void bucket::store(void) {
 		if(changesSinceLoad==0) {
 			return;
 		}
-		const bool haveChunks = chunksLoaded>0;
+		auto C = chunks.load();
+		auto H = hashes.load();
+		changesSinceLoad = 0;
+		const bool haveChunks = C!=nullptr;
 		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
 		const auto byteSizeEncryptedContent = byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead;
 		crypto::sha256sum emptyHsh(nullptr,0);
@@ -212,16 +214,14 @@ void bucket::store(void) {
 		cleartextH.resize(byteSizeHashes);
 		_ASSERT(cleartextH.size()==byteSizeHashes);
 		
-		_ASSERT(hashesLoaded!=0);
+		_ASSERT(H!=nullptr);
 		
-		_ASSERT(hashes.size() == chunksInBucket);
-
 		//
 		if(haveChunks || util::fileExists(filename)==false) {
 			if(haveChunks) {
 				auto * ptr = reinterpret_cast<uint8_t*>(&cleartext[0]);
-				for(auto & L:chunks) {
-					auto cptr = atomic_load(&L);
+				for(auto & L: *C) {
+					shared_ptr<chunk> cptr = L;
 					if (cptr) {
 						if (storeFilter) {
 							auto i = storeFilter(cptr);
@@ -248,10 +248,9 @@ void bucket::store(void) {
 		
 		//CLOG("bucket::store_hashes: ",filename);
 		auto * hptr = reinterpret_cast<serializedHash*>(&cleartextH[0]);
-		_ASSERT(hashes.size()==chunksInBucket);
 		unsigned num = 0;
-		for(auto & L:hashes) {
-			auto h = atomic_load(&L);
+		for(auto & L: *H) {
+			shared_ptr<hash> h = L;
 			if(h) {
 				++num;
 				hptr->bucket = h->getBucketIndex();
@@ -285,6 +284,5 @@ void bucket::store(void) {
 		_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);
 
 		//CLOG("bucket::store_end: ",filename);
-		changesSinceLoad = 0;
 	}
 }

@@ -9,7 +9,7 @@
 #include <functional>
 #include "types.h"
 #include "modules/crypto/key.h"
-
+#include "modules/util/atomic_shared_ptr.h"
 
 
 namespace filesystem {
@@ -19,20 +19,24 @@ namespace filesystem {
 	 */
 	typedef std::function<shared_ptr<chunk>(shared_ptr<chunk>)> loadFilter_t;
 	typedef std::function<shared_ptr<chunk>(shared_ptr<chunk>)> storeFilter_t;
+	template<typename T> using bucketArray = std::array<util::atomic_shared_ptr<T>,chunksInBucket>;
+
 	class bucket {
+		
 		typedef std::recursive_mutex locktype;
 		typedef std::unique_lock<locktype> lckunique;
 		private:
 
 		locktype _mut;
-		std::vector<shared_ptr<chunk>> chunks;
-		std::vector<shared_ptr<hash>> hashes;
+		util::atomic_shared_ptr<bucketArray<chunk>> chunks;
+		util::atomic_shared_ptr<bucketArray<hash>> hashes;
+		
 		str filename;
 		std::shared_ptr<crypto::key> _key;
 		crypto::protocolInterface * _protocol;
 		void loadChunks(void);
 		void loadHashes(void);
-		std::atomic_int changesSinceLoad,hashesLoaded,chunksLoaded;
+		std::atomic_int changesSinceLoad;//@todo: changesSinceLoad should be seperate for hashes and chunks.
 		loadFilter_t loadFilter;
 		storeFilter_t storeFilter;
 
