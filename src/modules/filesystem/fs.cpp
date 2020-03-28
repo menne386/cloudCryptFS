@@ -1114,7 +1114,8 @@ my_err_t fs::hardlink(const char * linktarget,const char * linkname, const conte
 
 my_size_t fs::evictCache(const char * ipath) {
 	lckguard l(_mut);
-	for(auto & i: inodeFileCache.list()) {
+	auto cacheList = inodeFileCache.list();
+	for(auto i: cacheList) {
 		i->rest();
 	}
 	
@@ -1136,7 +1137,8 @@ str fs::getStats() {
 	uint64_t hashesInMem = 0;
 	std::map<str,int64_t> hashDistribution;
 	uint64_t numDedupKbs = 0;
-	for(auto & hsh: buckets->hashesIndex.list()) {
+	auto hashesIndex = buckets->hashesIndex.list();
+	for(auto hsh: hashesIndex) {
 		if(hsh->hasData()) {
 			hashesInMem ++;
 		}
@@ -1158,8 +1160,8 @@ str fs::getStats() {
 	unsigned numINodeCTD = 0;
 	unsigned freeINodes = 0;
 	unsigned dirs=0,files=0,links=0,fifo=0,unknown = 0;
-	
-	for(auto & b: metaBuckets->loaded.list()) {
+	auto bucketList = metaBuckets->loaded.list();
+	for(auto b: bucketList) {
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			auto C = b->getChunk(a);
 			auto type = C->as<inode_header_only>()->header.type;
@@ -1232,7 +1234,8 @@ my_off_t fs::readMetadata(unsigned char* buf, my_size_t size, my_off_t offset) {
 
 	my_off_t offsetInBuf = 0;
 	my_off_t actualOffset = 0;
-	for(auto & it: metaBuckets->loaded.list()) {
+	auto metaBucketList = metaBuckets->loaded.list();
+	for(auto it: metaBucketList) {
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			if(offset>= actualOffset && offset<actualOffset+chunkSize) {
 				auto newSize = std::min(std::min(size,(my_size_t)((actualOffset+chunkSize) - offset)),(my_size_t)chunkSize);

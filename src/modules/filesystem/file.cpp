@@ -453,7 +453,7 @@ void file::storeHashes(void) {
 			auto c = metaChunk;
 			auto nextId = c->as<inode>()->nextID;	
 			unsigned newMetaChunks = 0;
-			for(auto & H:hashes) {
+			for(auto H:hashes) {
 				_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
 				if(H->getRefCnt()<=0) {
 					FS->srvERROR("storeHashes is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex().fullindex);
@@ -532,7 +532,7 @@ void file::truncate(my_off_t newSize) {
 		expected = hashList.getSize()-newNum;
 		toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
 		_ASSERT(toDelete.size()==expected);
-		for (auto & deleteHash : toDelete) {
+		for (auto deleteHash : toDelete) {
 			//@todo: && deleteHash.get() != FS->zeroHash().get() ??? research required!
 			if(deleteHash ) {
 				--expected;
@@ -761,7 +761,7 @@ bool file::rest() {
 	auto toRest = hashList.getAll();
 	
 	size_t num = 0;
-	for(auto & i: toRest) {
+	for(auto i: toRest) {
 		if(i->rest()) {
 			++num;
 		}
