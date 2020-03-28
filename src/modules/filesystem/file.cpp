@@ -795,8 +795,9 @@ bool file::rest() {
 	if(!valid()) {
 		return false;
 	}
-	//No locking required as only calls are made to properly protected member functions
+	//No locking required as only calls are made to properly protected member functions (perhaps not?)
 	if (_type != specialFile::REGULAR) return false;
+	lckunique l(_mut); // This operation should not run in paralel. 
 	auto toRest = hashList.getAll();
 	
 	size_t num = 0;
