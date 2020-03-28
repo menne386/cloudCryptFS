@@ -5,3 +5,5 @@
 
 #Corruption on both files and directories couple of times in 20 tests: (perhaps re-apply 5da504386b222b9d42b7a2b0d4bb0c99cebf092a?)
 ./multi_run.sh -n 20 create_read fstest dedup
+#Smaller test  case that trigger same behaviour:
+./multi_run.sh -n 20 create_read chflags chown chmod link mkdir
