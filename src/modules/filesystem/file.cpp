@@ -51,6 +51,7 @@ file::file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<pe
 	_ASSERT(INode()->nlinks.is_lock_free());
 };
 file::~file() {
+	lckunique l(_mut);
 	storeHashes();
 	if(refs!=0) {
 		FS->srvERROR(path," file was mishandled! refcount: ",refs.load());
