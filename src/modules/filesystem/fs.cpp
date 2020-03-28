@@ -280,6 +280,7 @@ str filesystem::fs::loadMetaDataFromINode(filesystem::inode* node) {
 }
 
 void fs::storeMetaDataInINode(inode * rootNode,const str & input) {
+	//@todo: should also write the node to it's bucket!
 	_ASSERT(input.size() < std::numeric_limits<uint32_t>::max());
 	rootNode->metasize.store((uint32_t)input.size());
 	auto c = createCtd(rootNode,true);
@@ -532,7 +533,7 @@ void fs::storeMetadata(void) {
 					}
 				}
 			}
-			root->rest();
+			root->rest();//This rest is probably what is messing up the files... (
 			srvDEBUG("List storing done");
 		}
 		srvDEBUG("storing metaBucket data");
