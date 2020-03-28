@@ -407,7 +407,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	}
 	std::vector<permission> pPerm;
 	root = make_shared<file>(rootChunk,"/",pPerm);
-	pathInodeCache["/"] = rootIndex;
+	pathInodeCache.insert("/",rootIndex);
 	inodeFileCache.insert(rootIndex,root);
 	//inodeFileCache[rootIndex] = root;
 
@@ -618,11 +618,16 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 		}
 	}
 	{
-		lckguard l(_mut);
-		auto itr = pathInodeCache.find(filename);
-		if(itr!=pathInodeCache.end()) {
-			return inodeToFile(itr->second,filename,errcode);
-
+		auto itr = pathInodeCache.get(filename);
+		if(itr.bucket) {
+			auto F = inodeToFile(itr,filename,errcode);
+			if(F->valid()) {
+				return F;
+			} else {
+				if(pathInodeCache.erase(filename)!=1) {
+					srvERROR("Failed to clear ",filename," to inode cache");
+				}
+			}
 		}
 	}
 
@@ -659,10 +664,7 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 	
 	_ASSERT(i.bucket>0);
 	
-	{
-		lckguard l(_mut);
-		pathInodeCache[filename] = i;
-	}
+	pathInodeCache.insert(filename,i);
 	std::vector<permission> pPerm = parentFile->getPathPermissions();
 	permission p;
 	p.gid = parentFile->gid();
@@ -718,6 +720,7 @@ filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * e
 }
 
 fileHandle fs::open(filePtr F) {
+	return 0;
 	//@todo: should warn when clearing inodeToFile cache that files can be open!
 	for(fileHandle a=1;a<openHandles.size();a++) {
 		if(openHandles[a].load()==nullptr) {
@@ -834,6 +837,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			srvDEBUG("shredding deleted file: ", fileToDelete->getPath());
 			fileToDelete->truncate(0);
 			fileToDelete->rest();
+			fileToDelete->setDeleted();
 			auto inoToDel = fileToDelete->inoList();
 			bucketIndex_t i;
 			i.fullindex  = fileToDelete->ino();
@@ -841,6 +845,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			if(inodeFileCache.erase(i)!=1) {
 				srvERROR("unlink:", filename,":",f->ino(), " failed to erase cached file entry");
 			}
+			
 			fileToDelete.reset();
 			f.reset();
 			for(auto & li:inoToDel) {
@@ -933,7 +938,6 @@ my_err_t fs::renamemove(const char * source,const char * dest, const context * c
 	auto tv = currentTime();
 	srcfile->updateTimesWith(false,true,true,tv);
 	//srvDEBUG("erase cache:");
-	lckguard lck(_mut);
 	pathInodeCache.erase(source);
 	pathInodeCache.erase(dest);
 	return EE::ok;
@@ -1113,7 +1117,6 @@ my_err_t fs::hardlink(const char * linktarget,const char * linkname, const conte
 
 
 my_size_t fs::evictCache(const char * ipath) {
-	lckguard l(_mut);
 	auto cacheList = inodeFileCache.list();
 	for(auto i: cacheList) {
 		i->rest();

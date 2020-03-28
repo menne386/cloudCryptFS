@@ -70,7 +70,7 @@ namespace filesystem{
 		unique_ptr<bucketInfo> metaBuckets,buckets;
 		static constexpr unsigned maxOpenFiles = 128;
 		locktype _mut;
-		std::unordered_map<str,bucketIndex_t> pathInodeCache;
+		util::protected_unordered_map<str,bucketIndex_t> pathInodeCache;
 		util::protected_unordered_map<const bucketIndex_t,filePtr> inodeFileCache;
 		std::array<util::atomic_shared_ptr<file>,maxOpenFiles> openHandles;
 		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx);
