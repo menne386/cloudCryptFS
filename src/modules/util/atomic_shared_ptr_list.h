@@ -28,9 +28,9 @@ public:
 	}
 	
 	listType getRange(size_t fromItem, size_t numItems) {
+		lckshared l(_mut);
 		listType ret;
 		if(fromItem+numItems <=_size) {
-			lckshared l(_mut);
 			ret.resize(numItems,nullptr);
 			size_t offset = fromItem;
 			for(auto & i: ret) {
@@ -41,9 +41,22 @@ public:
 		return ret;	
 	}
 	
+	listType getAll() {
+		lckshared l(_mut);
+		listType ret;
+		ret.resize(_size.load(),nullptr);
+		size_t offset = 0;
+		for(auto & i: ret) {
+			i = std::atomic_load(&_list[offset]);
+			++offset;
+		}
+		return ret;	
+	}
+	
+	
 	bool updateRange(size_t fromItem, listType & newItems) {
+		lckshared l(_mut);
 		if(fromItem+newItems.size()<=_size) {
-			lckshared l(_mut);
 			size_t offset = fromItem;
 			for(auto & i: newItems) {
 				std::atomic_store(&_list[offset],i);

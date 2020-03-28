@@ -446,7 +446,7 @@ void file::storeHashes(void) {
 
 	//meta->clearProperty("/hsh");
 	if(type()==fileType::FILE || type()==fileType::DIR || type()==fileType::LNK) {
-		auto hashes = hashList.getRange(0,hashList.getSize());
+		auto hashes = hashList.getAll();
 		if(hashes.empty()==false) {
 			unsigned idx = 0;
 			auto imax = inode::numctd;
@@ -758,7 +758,7 @@ bool file::isFullDir() {
 bool file::rest() {
 	//No locking required as only calls are made to properly protected member functions
 	if (_type != specialFile::REGULAR) return false;
-	auto toRest = hashList.getRange(0,hashList.getSize());
+	auto toRest = hashList.getAll();
 	
 	size_t num = 0;
 	for(auto & i: toRest) {
