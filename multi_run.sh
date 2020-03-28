@@ -15,7 +15,7 @@ rm -rf test/run*
 
 echo "Running $NUM tests with parameters: $@"
 
-for (( VARIABLE=1; VARIABLE<=NUM; VARIABLE++ ))
+for VARIABLE in $(seq -f "%02g" 1 $NUM)
 do
 ./fstest_docker.sh -n $VARIABLE $@ 
 done
