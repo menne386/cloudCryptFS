@@ -839,11 +839,10 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 		lckguard _l2(_mut);
 		if(fileToDelete) {
 			srvDEBUG("shredding deleted file: ", fileToDelete->getPath());
-			fileToDelete->truncate(0);
-			fileToDelete->rest();
-			auto inoToDel = fileToDelete->setDeletedAndReturnAllUsedInodes();
+			fileToDelete->truncate(0);//Truncating to zero will remove all data
+			auto inoToDel = fileToDelete->setDeletedAndReturnAllUsedInodes();//mark file as deleted and return all metaData blocks that were used.
 			bucketIndex_t i;
-			i.fullindex  = fileToDelete->ino();
+			i.fullindex = fileToDelete->ino();
 
 			if(inodeFileCache.erase(i)!=1) {
 				srvERROR("unlink:", filename,":",f->ino(), " failed to erase cached file entry");

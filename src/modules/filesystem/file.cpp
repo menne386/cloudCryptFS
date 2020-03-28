@@ -65,10 +65,8 @@ file::~file() {
 
 
 std::vector<bucketIndex_t> filesystem::file::setDeletedAndReturnAllUsedInodes() {
-	lckunique l(_mut);//Locking required for INode list
-	
 	isDeleted.store(true); 
-
+	lckunique l(_mut);//Locking required for INode list
 	std::vector<bucketIndex_t> ret;
 	ret.push_back(INode()->myID);
 	
