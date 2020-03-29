@@ -51,10 +51,12 @@ file::file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<pe
 	numHashReads.store(0);
 	
 	_ASSERT(INode()->nlinks.is_lock_free());
+	
+	FS->srvDEBUG("Created fileHandle ",(uint64_t)this," for ",path);
 };
 file::~file() {
-	FS->srvDEBUG("Closed last filehandle of ",path);
 	rest();
+	FS->srvDEBUG("Closed fileHandle ",(uint64_t)this," for ",path);
 	if(refs!=0) {
 		FS->srvERROR(path," file was mishandled! refcount: ",refs.load());
 	}
