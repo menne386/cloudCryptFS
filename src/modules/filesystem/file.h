@@ -61,7 +61,6 @@ namespace filesystem{
 		std::atomic_bool isDeleted;
 		bool requireType(fileType required);
 		void loadHashes(void);
-		void storeHashes(void);
 		bool validate_ownership(const context * ctx,my_mode_t newMode);
 		inode * INode() {return metaChunk->as<inode>();} 
 	public:

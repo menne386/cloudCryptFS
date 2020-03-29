@@ -53,8 +53,7 @@ file::file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<pe
 	_ASSERT(INode()->nlinks.is_lock_free());
 };
 file::~file() {
-	lckunique l(_mut);
-	storeHashes();
+	rest();
 	if(refs!=0) {
 		FS->srvERROR(path," file was mishandled! refcount: ",refs.load());
 	}
@@ -459,66 +458,6 @@ void file::loadHashes(void) {
 	
 	
 }
-void file::storeHashes(void) {
-	if(!valid()) {
-		return;
-	}
-	lckunique l(_mut); // This operation should not run in paralel. 
-
-	//meta->clearProperty("/hsh");
-	if(type()==fileType::FILE || type()==fileType::DIR || type()==fileType::LNK) {
-		auto hashes = hashList.getAll();
-		if(hashes.empty()==false) {
-			unsigned idx = 0;
-			auto imax = inode::numctd;
-			auto c = metaChunk;
-			auto nextId = c->as<inode>()->nextID;	
-			unsigned newMetaChunks = 0;
-			for(auto H:hashes) {
-				_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
-				if(H->getRefCnt()<=0) {
-					FS->srvERROR("storeHashes is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex().fullindex);
-				}
-				//_ASSERT(H->getRefCnt()>0);
-				if(imax==inode::numctd) {
-					//We are loading from an inode
-					c->as<inode>()->ctd[idx] = H->getBucketIndex();
-				} else {
-					c->as<inode_ctd>()->ctd[idx] = H->getBucketIndex();
-				}
-				
-				++idx;
-				if(idx>=imax) {
-					FS->storeInode(c);
-					if(nextId.bucket!=0) {
-						c = FS->inoToChunk(nextId);
-					} else {
-						if(imax == inode::numctd) {
-							c = FS->createCtd(c->as<inode>(),false);
-						} else {
-							c = FS->createCtd(c->as<inode_ctd>());
-						}
-						++newMetaChunks;
-					}
-					nextId = c->as<inode_ctd>()->nextID;
-					imax = inode_ctd::numctd;
-					idx=0;
-				}
-			}
-			
-			//Make sure last inode_ctd is properly stored (better once to many then too little.)
-			FS->storeInode(c);
-			FS->srvDEBUG("file::storeHashes: ", path, " hashes:", hashes.size(), " newMetaChunks:",newMetaChunks);
-		} else {
-			//Make sure we truncate the inode list, so loadHashes does not accidently load data from other files.
-			INode()->ctd[0].fullindex = 0;
-		}
-	}
-	
-	if(INode()->myID.bucket) {
-		FS->storeInode(metaChunk);
-	}
-}
 
 
 
@@ -798,17 +737,63 @@ bool file::rest() {
 	//No locking required as only calls are made to properly protected member functions (perhaps not?)
 	if (_type != specialFile::REGULAR) return false;
 	lckunique l(_mut); // This operation should not run in paralel. 
-	auto toRest = hashList.getAll();
-	
 	size_t num = 0;
-	for(auto i: toRest) {
-		if(i->rest()) {
-			++num;
+	size_t newMetaChunks = 0;
+	auto hashes = hashList.getAll();
+	if(hashes.empty()==false) {
+		unsigned idx = 0;
+		auto imax = inode::numctd;
+		auto c = metaChunk;
+		auto nextId = c->as<inode>()->nextID;	
+		for(auto & H:hashes) {
+			_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
+			if(H->getRefCnt()<=0) {
+				FS->srvERROR("file::rest is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex().fullindex);
+			}
+			if(H->rest()) {
+				++num;
+			}
+			//_ASSERT(H->getRefCnt()>0);
+			if(imax==inode::numctd) {
+				//We are loading from an inode
+				c->as<inode>()->ctd[idx] = H->getBucketIndex();
+			} else {
+				c->as<inode_ctd>()->ctd[idx] = H->getBucketIndex();
+			}
+			
+			++idx;
+			if(idx>=imax) {
+				FS->storeInode(c);
+				if(nextId.bucket!=0) {
+					c = FS->inoToChunk(nextId);
+				} else {
+					if(imax == inode::numctd) {
+						c = FS->createCtd(c->as<inode>(),false);
+					} else {
+						c = FS->createCtd(c->as<inode_ctd>());
+					}
+					++newMetaChunks;
+				}
+				nextId = c->as<inode_ctd>()->nextID;
+				imax = inode_ctd::numctd;
+				idx=0;
+			}
 		}
+		
+		//Make sure last inode_ctd is properly stored (better once to many then too little.)
+		FS->storeInode(c);
+	} else {
+		//Make sure we truncate the inode list, so loadHashes does not accidently load data from other files.
+		INode()->ctd[0].fullindex = 0;
 	}
-	FS->srvDEBUG("file::rest ",num,"/",toRest.size()," for ", path);
-	toRest.clear();
-	storeHashes();
+	
+	FS->srvDEBUG("file::rest ",num,"/",hashes.size()," hashes for ", path," with ",newMetaChunks," new metaChunks");
+	
+	if(INode()->myID.bucket) {
+		FS->storeInode(metaChunk);
+	}
+	
+	
 	return num>0;
 }
 
@@ -963,11 +948,11 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 	truncate(content.size());
 	
 	rest();
-	auto readback = script::ComplexType::newComplex();
+	/*auto readback = script::ComplexType::newComplex();
 	if(!readDirectoryContent(readback)) {
 		FS->srvERROR("Failed to read directory right after write! directory: ",path);
 	}
-	FS->srvDEBUG("Read back written directory: ",readback->serialize(0));
+	FS->srvDEBUG("Read back written directory: ",readback->serialize(0));*/
 	
 	return true;
 }
