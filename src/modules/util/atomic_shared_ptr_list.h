@@ -55,7 +55,7 @@ public:
 	
 	
 	bool updateRange(size_t fromItem, listType & newItems) {
-		lckunique l(_mut);
+		lckshared l(_mut);
 		if(fromItem+newItems.size()<=_size) {
 			size_t offset = fromItem;
 			for(auto & i: newItems) {

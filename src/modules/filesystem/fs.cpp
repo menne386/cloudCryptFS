@@ -628,6 +628,7 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 				if(pathInodeCache.erase(filename)!=1) {
 					srvERROR("Failed to clear ",filename," to inode cache");
 				}
+				pathInodeCache.insert("/",rootIndex);
 			}
 		}
 	}
@@ -1127,6 +1128,9 @@ my_size_t fs::evictCache(const char * ipath) {
 	
 	pathInodeCache.clear();
 	inodeFileCache.clear();
+	
+	pathInodeCache.insert("/",rootIndex);
+	inodeFileCache.insert(rootIndex,root);
 	
 	return inodeFileCache.size();
 }
