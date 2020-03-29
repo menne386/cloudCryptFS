@@ -126,6 +126,10 @@ fi
 
 shift
 
+
+cp /srv/log.txt $OUTPUT
+
+
 done
 
 } | tee -a /srv/log.txt
