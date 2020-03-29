@@ -533,7 +533,7 @@ void fs::storeMetadata(void) {
 					}
 				}
 			}
-			root->rest();//This rest is probably what is messing up the files... (
+			//root->rest();//This rest is probably what is messing up the files... (
 			srvDEBUG("List storing done");
 		}
 		srvDEBUG("storing metaBucket data");
