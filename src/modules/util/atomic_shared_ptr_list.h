@@ -9,6 +9,7 @@
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
+#include <algorithm>
 
 namespace util{
 	
@@ -80,6 +81,12 @@ public:
 		_list.resize(newSize,newItem);
 		_size = newSize;
 		return ret;
+	}
+	
+	void swap(listType & list) {
+		lckunique l(_mut);
+		std::swap(_list,list);
+		_size = _list.size();
 	}
 
 private:
