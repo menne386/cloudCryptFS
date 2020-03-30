@@ -26,10 +26,11 @@ const auto byteSizeChunks = (chunksInBucket * chunkSize);
 const auto byteSizeHashes = (chunksInBucket * sizeof(serializedHash));
 
 
-void bucket::loadHashes(void) {
+shared_ptr<bucketArray<hash>> bucket::loadHashes(void) {
 	lckunique lck(_mut);
-	if(chunks.load()) {
-		return;
+	auto OH = hashes.load();
+	if(OH) {
+		return OH;
 	}
 	auto H = std::make_shared<bucketArray<hash>>();
 	
@@ -60,13 +61,15 @@ void bucket::loadHashes(void) {
 		}
 	}
 	hashes = H;
+	return H;
 }
 
 
-void bucket::loadChunks(void) {
+shared_ptr<bucketArray<chunk>> bucket::loadChunks(void) {
 	lckunique lck(_mut);
-	if(chunks.load()) {
-		return;
+	auto OC = chunks.load();
+	if(OC) {
+		return OC;
 	}
 	chunk base;
 
@@ -112,6 +115,7 @@ void bucket::loadChunks(void) {
 
 	changesSinceLoad = 0;
 	chunks = C;
+	return C;
 }
 bucket::bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protocolInterface * iprotocol) :filename(file), _key(ikey), _protocol(iprotocol){
 	changesSinceLoad = 0;
@@ -151,14 +155,14 @@ void filesystem::bucket::clearCache() {
 
 std::shared_ptr<chunk> bucket::getChunk(int64_t id) {
 	auto C = chunks.load();
-	if(!C) { loadChunks(); C = chunks.load(); }
+	if(!C) { C= loadChunks();}
 	_ASSERT(C!=nullptr);
 	return C->at(id);
 }
 
 void bucket::putChunk(int64_t id,std::shared_ptr<chunk> c) {
 	auto C = chunks.load();
-	if(!C) { loadChunks(); C = chunks.load(); }
+	if(!C) { C = loadChunks(); }
 	_ASSERT(C!=nullptr);
 	if(C->at(id).load().get() == c.get()) {
 		//Chunk is already at this spot in the bucket: no changes are made
@@ -170,14 +174,14 @@ void bucket::putChunk(int64_t id,std::shared_ptr<chunk> c) {
 
 std::shared_ptr<hash> bucket::getHash(int64_t id) {
 	auto H = hashes.load();
-	if(!H) {loadHashes(); H = hashes.load(); }
+	if(!H) {H = loadHashes(); }
 	_ASSERT(H!=nullptr);
 	return H->at(id);
 }
 
 void bucket::putHash(int64_t id,std::shared_ptr<hash> c) {
 	auto H = hashes.load();
-	if(!H) {loadHashes(); H = hashes.load(); }
+	if(!H) {H = loadHashes();}
 	_ASSERT(H!=nullptr);
 	++changesSinceLoad;	
 	H->at(id) = c;

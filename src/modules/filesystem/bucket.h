@@ -34,8 +34,8 @@ namespace filesystem {
 		str filename;
 		std::shared_ptr<crypto::key> _key;
 		crypto::protocolInterface * _protocol;
-		void loadChunks(void);
-		void loadHashes(void);
+		shared_ptr<bucketArray<chunk>> loadChunks(void);
+		shared_ptr<bucketArray<hash>> loadHashes(void);
 		std::atomic_int changesSinceLoad;//@todo: changesSinceLoad should be seperate for hashes and chunks.
 		loadFilter_t loadFilter;
 		storeFilter_t storeFilter;
