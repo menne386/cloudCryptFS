@@ -54,6 +54,7 @@ namespace filesystem{
 		void loadHashesFromBucket(uint64_t id);
 		void removeBucket(uint64_t id);
 		bucket* getBucket(uint64_t id);
+		shared_ptr<chunk> getChunk(const bucketIndex_t& index);
 		shared_ptr<hash> getHash(const bucketIndex_t& index);
 	};
 	class fs : public service {

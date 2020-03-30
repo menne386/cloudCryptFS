@@ -171,6 +171,10 @@ bucket* bucketInfo::getBucket(uint64_t id) {
 	return ret;
 }
 
+shared_ptr<chunk> bucketInfo::getChunk(const bucketIndex_t& index) {
+	return getBucket(index.bucket)->getChunk(index.index);
+}
+
 shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
 	return getBucket(index.bucket)->getHash(index.index);
 }
