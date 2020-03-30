@@ -39,8 +39,8 @@ namespace filesystem {
 	class hash {
 	private:
 		typedef uint32_t flagtype;
-		crypto::sha256sum _hsh;
-		bucketIndex_t bucketIndex;
+		const crypto::sha256sum _hsh;
+		const bucketIndex_t bucketIndex;
 		std::atomic<script::int_t> refcnt;		
 		util::atomic_shared_ptr<chunk> _data;
 		std::atomic<flagtype> flags;

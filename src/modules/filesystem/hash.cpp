@@ -73,7 +73,7 @@ bool hash::compareChunk(shared_ptr<chunk> c) {
 std::shared_ptr<chunk> hash::data(bool load) {
 	std::shared_ptr<chunk> ret = _data;
 	if(ret==nullptr && isFlags(FLAG_NOAUTOLOAD)==false && load) {
-		ret = FS->buckets->getBucket(bucketIndex.bucket)->getChunk(bucketIndex.index);
+		ret = FS->buckets->getChunk(bucketIndex);
 		_data = ret;
 	}
 	return ret;
