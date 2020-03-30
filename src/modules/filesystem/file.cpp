@@ -318,7 +318,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID.fullindex, " mode:",nodeMeta->as<inode>()->mode.load());
 	directory->getI(name) = nodeMeta->as<inode>()->myID.fullindex;
 	if(!writeDirectoryContent(directory)) {
-		return EE::permission_denied;
+		return EE::io_error;
 	}
 	INode()->ctime = currentTime();
 	
@@ -347,7 +347,7 @@ my_err_t file::removeNode(const str & name,const context * ctx) {
 	}
 	
 	if(!writeDirectoryContent(directory)) {
-		return EE::permission_denied;
+		return EE::io_error;
 	}
 	INode()->ctime = currentTime();
 	
@@ -731,6 +731,38 @@ bool file::isFullDir() {
 	return false;
 }
 
+bool file::swapContent(const str & newContent) {
+	if(!valid()) {
+		return false;
+	}
+	if(_type!=specialFile::REGULAR) return false;
+	
+	lckunique lck(_mut); //Will replace all content, will need a lock.
+	
+	std::vector<shared_ptr<hash>> newList;
+	size_t offset = 0;
+	while(offset<newContent.size()) {
+		auto newSize=std::min((size_t)chunkSize,(size_t)(newContent.size()-offset));
+		auto newHsh = FS->zeroHash()->write(0,newSize,reinterpret_cast<const uint8_t *>(&newContent[offset]));
+		_ASSERT(newHsh!=nullptr);
+		newHsh->incRefCnt();
+		newList.push_back(newHsh);
+		offset += newSize;
+	}
+	
+	hashList.swap(newList);
+	
+	INode()->size = newContent.size();
+	INode()->mtime = currentTime();
+	INode()->ctime = INode()->mtime = currentTime();
+	
+	
+	for(auto & i: newList) {
+		i->decRefCnt();
+	}
+	return true;
+}
+
 
 //This puts the file + it's data to rest so that it gets stored to hard disk.
 bool file::rest() {
@@ -913,8 +945,8 @@ bool file::readDirectoryContent(script::complextypePtr out) {
 		lckunique l(_mut);
 		if(size()) {
 			str content;
-			content.resize(size());
-			if(read(reinterpret_cast<uint8_t*>(&content[0]),size(),0)!=(int)content.size()) {
+			content.resize(INode()->size);
+			if(read(reinterpret_cast<uint8_t*>(&content[0]),content.size(),0)!=(int)content.size()) {
 				FS->srvERROR("Failed to read directory:",path);
 				return false;
 			}
@@ -939,23 +971,15 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 		content.clear();
 	}
 	
-	if(content.empty()==false) {
-		//FS->srvDEBUG("directory: ",content, " to: ",path);
-		if(write(reinterpret_cast<uint8_t*>(&content[0]),content.size(),0)!=(int)content.size()) {
-			FS->srvERROR("write dir failed:",path," c:<<",content,">> csize:",content.size());
-			return false;
-		}
-	} else {
-		FS->srvDEBUG("empty directory to: ",path);
-	}
-	truncate(content.size());
+	_ASSERT(swapContent(content)==true);
 	
 	rest();
-	/*auto readback = script::ComplexType::newComplex();
-	if(!readDirectoryContent(readback)) {
-		FS->srvERROR("Failed to read directory right after write! directory: ",path);
+	
+	auto hashes = hashList.getAll();
+	for(auto & h:hashes) {
+		h->data(true); // Would this help? Answer it does.... why though? Somehow the data from the hash needs to be present in memory after this call.
+					   // It should be possible to leave it on disk!
 	}
-	FS->srvDEBUG("Read back written directory: ",readback->serialize(0));*/
 	
 	return true;
 }

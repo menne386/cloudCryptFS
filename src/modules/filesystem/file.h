@@ -48,8 +48,8 @@ namespace filesystem{
 		std::atomic_int numHashWrites,numHashReads;
 		std::shared_ptr<script::ComplexType> extraMeta;
 		std::shared_ptr<chunk> metaChunk;
-		str path;
-		std::vector<permission> pathPermissions;
+		const str path;
+		const std::vector<permission> pathPermissions;
 		locktypeshared _mut;
 		specialFile _type=specialFile::REGULAR;
 		
@@ -117,6 +117,7 @@ namespace filesystem{
 		
 		//void loadStat(myStat * stbuf);
 
+		bool swapContent(const str & newContent);
 		
 		void loadStat(fileType * T,my_mode_t * M,my_off_t * S,my_gid_t * G,my_uid_t * U,timeHolder * at,timeHolder * mt,timeHolder * ct, my_ino_t * in);
 		void truncate(my_off_t newSize);
