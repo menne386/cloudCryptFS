@@ -52,7 +52,7 @@ script::int_t hash::decRefCnt() {
 			_ASSERT(hsh.get()==this);
 			if (FS->buckets->hashesIndex.erase(_hsh) == 1) {
 				//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
-				FS->buckets->getBucket(bucketIndex.bucket)->putHash(bucketIndex.index,nullptr);
+				FS->buckets->getBucket(bucketIndex.bucket)->clearHashAndChunk(bucketIndex.index);
 				FS->buckets->accounting->post(bucketIndex);
 			} else {
 				FS->srvERROR("Failed to delete hash ",_hsh.toShortStr(), " from global index");
@@ -78,10 +78,14 @@ std::shared_ptr<chunk> hash::data(bool load) {
 	}
 	return ret;
 }
-void hash::clearData() {
+bool hash::clearData() {
 	if(isFlags(FLAG_NOAUTOSTORE) == false) {
-		_data = std::shared_ptr<chunk>();
+		auto T = _data.exchange(std::shared_ptr<chunk>());
+		if(T!=nullptr) {
+			return true;
+		}
 	}
+	return false;
 }
 bool hash::hasData() { return _data.load()!=nullptr; }
 
@@ -116,15 +120,7 @@ hashPtr hash::write(my_off_t offset,my_size_t size,const unsigned char * input) 
 }
 
 bool hash::rest(void) {
-	auto d = data();
-	if(d) {
-		if (refcnt > 0 && isFlags(FLAG_DELETED|FLAG_NOAUTOSTORE) == false) {
-			FS->buckets->getBucket(bucketIndex.bucket)->putChunk(bucketIndex.index, d);
-		}
-		clearData();
-		return true;
-	}
-	return false;
+	return clearData();//Currently a clearData operation is exactly the same a "rest" operation
 }
 
 

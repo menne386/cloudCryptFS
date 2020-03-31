@@ -65,7 +65,7 @@ namespace filesystem {
 		bool compareChunk(shared_ptr<chunk> c);
 		
 		std::shared_ptr<chunk> data(bool load=false);
-		void clearData();
+		bool clearData();
 		bool hasData();
 		
 		
