@@ -18,6 +18,8 @@ namespace util{
 	template <typename T> 
 	using atomic_shared_ptr = std::atomic<std::shared_ptr<T>>;
 #else
+	/*The following atomic_shared_ptr class is a C++20 compatible wrapper around the pre C++20 api. (only operations that are used are implemented) */
+
 	template <typename T> 
 	class atomic_shared_ptr{
 		private:
@@ -44,6 +46,14 @@ namespace util{
 		
 		operator std::shared_ptr<T> () const noexcept {
 			return load();
+		}
+		
+		std::shared_ptr<T> exchange(std::shared_ptr<T> desired,std::memory_order order = std::memory_order_seq_cst) noexcept {
+			return atomic_exchange_explicit(&_inner,desired,order);
+		}
+			
+		bool compare_exchange_strong(std::shared_ptr<T>& expected, std::shared_ptr<T> desired) noexcept {
+			return atomic_compare_exchange_strong(&_inner,&expected,desired);
 		}
 	};
 
