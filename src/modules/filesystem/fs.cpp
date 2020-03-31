@@ -380,7 +380,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	_ASSERT(protocol->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
 	
 	//Make sure the zeroHash has a place in a bucket.
-	buckets->getBucket(rootIndex.bucket)->putHash(rootIndex.index,_zeroHash);
+	buckets->getBucket(rootIndex.bucket)->putHashAndChunk(rootIndex.index,_zeroHash,zeroChunk);
 	
 	{
 		auto l = metaInfo->getSize("metaBuckets");
@@ -493,7 +493,6 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 		newBucket->store();
 		bb.second->del();
 		bb.second = std::move(newBucket);
-		bb.second->clearCache();
 		metaBuckets->loaded.insert(bb.first,bb.second);
 	}
 	for(auto & bb:buckets->loaded.clone()) {
@@ -504,7 +503,6 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 		newBucket->store();
 		bb.second->del();
 		bb.second = std::move(newBucket);
-		bb.second->clearCache();
 		buckets->loaded.insert(bb.first,bb.second);
 	}
 	
@@ -544,15 +542,15 @@ void fs::storeMetadata(void) {
 		auto mbl = metaBuckets->loaded.list();
 		for(auto & i:mbl) {
 			if(i) {
-				i->store();//store operation will keep everything in memory but stores a copy to dsk.
+				i->store();//store operation will keep everything in memory but stores a copy to dsk by default
 			}
 		}
 		
 		srvDEBUG("clearing bucket data");
 		auto bl = buckets->loaded.list();
 		for(auto & i:bl) {
-			i->store();//store operation will keep everything in memory but stores a copy to dsk.
-			i->clearCache(); //clearCache operation will release memory
+			i->store(true);//store(true) operation will clear cache and stores a copy to dsk.
+			
 		}
 		srvDEBUG("end storeMetadata");
 		srvMESSAGE("Metadata stored");
@@ -726,11 +724,10 @@ filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * e
 }
 
 fileHandle fs::open(filePtr F) {
-	return 0;
-	//@todo: should warn when clearing inodeToFile cache that files can be open!
+	//should warn when clearing inodeToFile cache that files can be open!
 	for(fileHandle a=1;a<openHandles.size();a++) {
-		if(openHandles[a].load()==nullptr) {
-			openHandles[a]=F;
+		filePtr expected = nullptr;
+		if(openHandles[a].compare_exchange_strong(expected,F)) {
 			return a;
 		}
 	}
@@ -739,9 +736,8 @@ fileHandle fs::open(filePtr F) {
 }
 void fs::close(filePtr F,fileHandle H) {
 	if(H>0 && H < openHandles.size()) {
-		filePtr handle = openHandles[H];
-		if(handle.get() == F.get()) {
-			openHandles[H] = filePtr();
+		if(openHandles[H].compare_exchange_strong(F,filePtr())) {
+			return;
 		} else {
 			srvWARNING("Failed to close fileHandle for: ",F->getPath());
 		}
@@ -858,13 +854,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			f.reset();
 			for(auto & li:inoToDel) {
 				srvDEBUG("unlink:: posting ino ",li.fullindex);
-				metaBuckets->getBucket(li.bucket)->putChunk(li.index,zeroChunk);
-				auto removeHash = metaBuckets->getBucket(li.bucket)->getHash(li.index);
-				if(removeHash) {
-					metaBuckets->hashesIndex.erase(removeHash->getHashPrimitive());
-					metaBuckets->getBucket(li.bucket)->putHash(li.index,nullptr);
-					//_ASSERT(removeHash->decRefCnt()==0);
-				}
+				metaBuckets->getBucket(li.bucket)->clearHashAndChunk(li.index);
 				metaBuckets->accounting->post(li);
 			}
 		}
@@ -1045,12 +1035,10 @@ std::shared_ptr<hash> fs::newHash(const crypto::sha256sum & in,std::shared_ptr<c
 	{
 		auto bucket = buckets->accounting->fetch();
 		//CLOG("Fetched: ",bucket.fullindex," b:",bucket.bucket," i:",bucket.index);
-	
-		auto B = buckets->getBucket(bucket.bucket);
 		auto newHash = std::make_shared<hash>(in, bucket, 0, c);
-
-		B->putHash(bucket.index,newHash);
-		//B->putChunk(bucket.index,c);
+		//Put both hash and chunk into storage (instead of on hash rest!)
+		buckets->getBucket(bucket.bucket)->putHashAndChunk(bucket.index,newHash,c);
+		
 		buckets->hashesIndex.insert(in,newHash);
 		//return the new hash object
 		return newHash;

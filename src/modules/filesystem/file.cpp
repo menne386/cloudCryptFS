@@ -942,7 +942,6 @@ bool file::readDirectoryContent(script::complextypePtr out) {
 	}
 	
 	if(type()==fileType::DIR) {
-		lckunique l(_mut);
 		if(size()) {
 			str content;
 			content.resize(INode()->size);
@@ -965,25 +964,14 @@ bool file::writeDirectoryContent (script::complextypePtr in) {
 		return false;
 	}
 	
-	lckunique l(_mut);
-	{
-		auto content = in->serialize(0);
-		if(content.size()==2) {
-			content.clear();
-		}
-		
-		rest(); //Rest the old hashes
-		
-		_ASSERT(swapContent(content)==true);
+	
+	auto content = in->serialize(0);
+	if(content.size()==2) {
 		content.clear();
 	}
-	rest(); 
 	
-	/*auto hashes = hashList.getAll();
-	for(auto & h:hashes) {
-		h->data(true); // Would this help? Answer it does.... why though? Somehow the data from the hash needs to be present in memory after this call.
-					   // It should be possible to leave it on disk!
-	}*/
+	_ASSERT(swapContent(content)==true);
+	rest(); 
 	
 	return true;
 }
