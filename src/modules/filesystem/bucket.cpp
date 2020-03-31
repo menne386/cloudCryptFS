@@ -60,6 +60,7 @@ shared_ptr<bucketArray<hash>> bucket::loadHashes(void) {
 			ptr++;
 		}
 	}
+	hashChangesSinceLoad = 0;
 	hashes = H;
 	return H;
 }
@@ -113,12 +114,13 @@ shared_ptr<bucketArray<chunk>> bucket::loadChunks(void) {
 		}
 	}
 
-	changesSinceLoad = 0;
+	chunkChangesSinceLoad = 0;
 	chunks = C;
 	return C;
 }
 bucket::bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protocolInterface * iprotocol) :filename(file), _key(ikey), _protocol(iprotocol){
-	changesSinceLoad = 0;
+	chunkChangesSinceLoad = 0;
+	hashChangesSinceLoad = 0;
 }
 
 bucket::~bucket() {
@@ -128,7 +130,8 @@ bucket::~bucket() {
 }
 
 void filesystem::bucket::del(void) {
-	changesSinceLoad = 0;
+	hashChangesSinceLoad = 0;
+	chunkChangesSinceLoad = 0;
 	lckunique lck(_mut);
 	chunks = std::shared_ptr<bucketArray<chunk>>();
 	hashes = std::shared_ptr<bucketArray<hash>>();
@@ -139,37 +142,27 @@ void filesystem::bucket::del(void) {
 
 void filesystem::bucket::migrateTo(bucket * targetBucket) {
 	lckunique lck(_mut);
-	changesSinceLoad = 0;
+	hashChangesSinceLoad = 0;
+	chunkChangesSinceLoad = 0;
 	if(chunks.load()==nullptr) {loadChunks();}
 	if(hashes.load()==nullptr) {loadHashes();}
 	targetBucket->chunks = chunks.load();
 	targetBucket->hashes = hashes.load();
 	chunks = std::shared_ptr<bucketArray<chunk>>();
 	hashes = std::shared_ptr<bucketArray<hash>>();
-	targetBucket->changesSinceLoad = 1000;
+	targetBucket->hashChangesSinceLoad = 1000;
+	targetBucket->chunkChangesSinceLoad = 1000;
 }
 
-void filesystem::bucket::clearCache() {
+/*void filesystem::bucket::clearCache() {
 	chunks = std::shared_ptr<bucketArray<chunk>>();
-}
+}*/
 
 std::shared_ptr<chunk> bucket::getChunk(int64_t id) {
 	auto C = chunks.load();
 	if(!C) { C= loadChunks();}
 	_ASSERT(C!=nullptr);
 	return C->at(id);
-}
-
-void bucket::putChunk(int64_t id,std::shared_ptr<chunk> c) {
-	auto C = chunks.load();
-	if(!C) { C = loadChunks(); }
-	_ASSERT(C!=nullptr);
-	if(C->at(id).load().get() == c.get()) {
-		//Chunk is already at this spot in the bucket: no changes are made
-		return;
-	}
-	++changesSinceLoad;
-	C->at(id) = c;
 }
 
 std::shared_ptr<hash> bucket::getHash(int64_t id) {
@@ -179,32 +172,46 @@ std::shared_ptr<hash> bucket::getHash(int64_t id) {
 	return H->at(id);
 }
 
-void bucket::putHash(int64_t id,std::shared_ptr<hash> c) {
+void bucket::putHashAndChunk(int64_t id,std::shared_ptr<hash> h,std::shared_ptr<chunk> c) {
 	auto H = hashes.load();
-	if(!H) {H = loadHashes();}
-	_ASSERT(H!=nullptr);
-	++changesSinceLoad;	
-	H->at(id) = c;
+	if(!H) {H = loadHashes();}	
+	auto C = chunks.load();
+	if(!C) { C = loadChunks(); }
+	_ASSERT(H!=nullptr && C!=nullptr);
+	++chunkChangesSinceLoad;
+	++hashChangesSinceLoad;
+	H->at(id) = h;
+	C->at(id) = c;
 }
+
+void bucket::clearHashAndChunk(int64_t id) {
+	putHashAndChunk(id,nullptr,std::make_shared<chunk>());
+}
+
 
 void bucket::putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::shared_ptr<chunk> c) {
 	auto hsh = c->getHash();
 	auto rootHash = make_shared<hash>(hsh,idx,irefcnt,nullptr,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD);
-	putHash(idx.index,rootHash);
-	putChunk(idx.index,c);
+	putHashAndChunk(idx.index,rootHash,c);
 }
 
 
 
-void bucket::store(void) {
-	if(changesSinceLoad>0) {
+void bucket::store(bool clearCache) {
+	if(hashChangesSinceLoad>0 || chunkChangesSinceLoad>0) {
 		lckunique lck(_mut);
-		if(changesSinceLoad==0) {
+		if(hashChangesSinceLoad==0 && chunkChangesSinceLoad == 0) {
 			return;
 		}
-		auto C = chunks.load();
+		shared_ptr<bucketArray<chunk>> C;
+		if(clearCache) {
+			C = chunks.exchange(shared_ptr<bucketArray<chunk>>());
+		} else {
+			C = chunks.load();
+		}
 		auto H = hashes.load();
-		changesSinceLoad = 0;
+		hashChangesSinceLoad = 0;
+		chunkChangesSinceLoad = 0;
 		const bool haveChunks = C!=nullptr;
 		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
 		const auto byteSizeEncryptedContent = byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead;

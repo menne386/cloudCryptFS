@@ -36,7 +36,7 @@ namespace filesystem {
 		crypto::protocolInterface * _protocol;
 		shared_ptr<bucketArray<chunk>> loadChunks(void);
 		shared_ptr<bucketArray<hash>> loadHashes(void);
-		std::atomic_int changesSinceLoad;//@todo: changesSinceLoad should be seperate for hashes and chunks.
+		std::atomic_int chunkChangesSinceLoad,hashChangesSinceLoad;
 		loadFilter_t loadFilter;
 		storeFilter_t storeFilter;
 
@@ -50,19 +50,20 @@ namespace filesystem {
 		void setStoreFilter(storeFilter_t in) { storeFilter = in; };
 		void del(void);
 		void migrateTo(bucket * targetBucket);
-		void clearCache(void);
 		
 		std::shared_ptr<chunk> getChunk(int64_t id);
-		void putChunk(int64_t id,std::shared_ptr<chunk> c);
 		
 		std::shared_ptr<hash> getHash(int64_t id);
-		void putHash(int64_t id,std::shared_ptr<hash> c);
+		
+		void putHashAndChunk(int64_t id,std::shared_ptr<hash> h,std::shared_ptr<chunk> c);
 
-		void hashChanged(void) { changesSinceLoad++; }
+		void clearHashAndChunk(int64_t id);
+
+		void hashChanged(void) { ++hashChangesSinceLoad; }
 		
 		void putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::shared_ptr<chunk> c);
 		
-		void store(void);
+		void store(bool clearCache = false);
 	};
 
 }
