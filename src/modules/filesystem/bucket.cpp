@@ -9,7 +9,8 @@
 #include "modules/crypto/protocol.h"
 #include "modules/util/files.h"
 #include "modules/util/endian.h"
-#include "fs.h"
+#include "storage.h"
+
 using namespace filesystem;
 
 //protect bucket with mutex
@@ -86,7 +87,7 @@ shared_ptr<bucketArray<chunk>> bucket::loadChunks(void) {
 		try{
 			_protocol->decrypt(_key,cipher,cleartext);
 		} catch(std::exception & e) {
-			util::putSystemString(FS->getPath()+"decrypt_fail",util::getSystemString(filename));
+			util::putSystemString(STOR->getPath()+"decrypt_fail",util::getSystemString(filename));
 			throw std::logic_error(BUILDSTRING("Failed to decrypt chunks (",e.what(),") ",filename).c_str());
 		}	
 		if(cleartext.size()!=byteSizeChunks) {
@@ -245,7 +246,7 @@ void bucket::store(bool clearCache) {
 					ptr+=chunkSize;
 				} 
 			} else {
-				FS->srvWARNING("Writing hashes without chunks to: ",filename);					
+				STOR->srvWARNING("Writing hashes without chunks to: ",filename);					
 			}
 
 			try{
@@ -286,10 +287,10 @@ void bucket::store(bool clearCache) {
 		
 		size_t S = 0;
 		if(cipher.empty()==false) {
-			FS->srvDEBUG("Storing chunks&hashes in: ",filename);
+			STOR->srvDEBUG("Storing chunks&hashes in: ",filename);
 			util::putSystemString(filename,cipher+cipherH);
 		} else {
-			FS->srvDEBUG("Overwriting hashes in: ",filename);
+			STOR->srvDEBUG("Overwriting hashes in: ",filename);
 			util::replaceIntoSystemString(filename,cipherH,byteSizeChunks+byteSizeEncryptionOverhead);
 		}
 		_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);

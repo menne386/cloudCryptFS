@@ -6,6 +6,7 @@
 #define FUSE_USE_VERSION 27
 #include <fuse.h>
 #include "modules/filesystem/fs.h"
+#include "modules/filesystem/storage.h"
 #include "modules/util/files.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -395,7 +396,7 @@ int statfs_callback (const char *path , struct statvfs * buf) {
 	auto fs = FS->getStatFS();
 #ifdef _WIN32
 	ULARGE_INTEGER lpFreeBytesAvailableToCaller, lpTotalNumberOfBytes, lpTotalNumberOfFreeBytes;
-	if (GetDiskFreeSpaceExA((FS->getPath()).c_str(),&lpFreeBytesAvailableToCaller,&lpTotalNumberOfBytes,&lpTotalNumberOfFreeBytes)) {
+	if (GetDiskFreeSpaceExA((STOR->getPath()).c_str(),&lpFreeBytesAvailableToCaller,&lpTotalNumberOfBytes,&lpTotalNumberOfFreeBytes)) {
 
 	}
 	buf->f_bavail = lpFreeBytesAvailableToCaller.QuadPart / fs.first;

@@ -5,7 +5,7 @@
 #include "chunk.h"
 #include "bucket.h"
 #include "bucketaccounting.h"
-#include "fs.h"
+#include "storage.h"
 #include <mutex>
 using namespace filesystem;
 
@@ -38,7 +38,7 @@ script::int_t hash::incRefCnt() {
 	++refcnt;
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE)==false) {
 		_ASSERT(isFlags(FLAG_DELETED)==false);//Never revide a dead hash!
-		FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
+		STOR->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	}
 	return refcnt;
 }
@@ -48,18 +48,18 @@ script::int_t hash::decRefCnt() {
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE|FLAG_DELETED)==false) {
 		if (refcnt == 0) {
 			setFlags(FLAG_DELETED);
-			auto hsh = FS->buckets->hashesIndex.get(_hsh);
+			auto hsh = STOR->buckets->hashesIndex.get(_hsh);
 			_ASSERT(hsh.get()==this);
-			if (FS->buckets->hashesIndex.erase(_hsh) == 1) {
+			if (STOR->buckets->hashesIndex.erase(_hsh) == 1) {
 				//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
-				FS->buckets->getBucket(bucketIndex.bucket)->clearHashAndChunk(bucketIndex.index);
-				FS->buckets->accounting->post(bucketIndex);
+				STOR->buckets->getBucket(bucketIndex.bucket)->clearHashAndChunk(bucketIndex.index);
+				STOR->buckets->accounting->post(bucketIndex);
 			} else {
-				FS->srvERROR("Failed to delete hash ",_hsh.toShortStr(), " from global index");
+				STOR->srvERROR("Failed to delete hash ",_hsh.toShortStr(), " from global index");
 			}
 			clearData();
 		}
-		FS->buckets->getBucket(bucketIndex.bucket)->hashChanged();
+		STOR->buckets->getBucket(bucketIndex.bucket)->hashChanged();
 	}
 	return refcnt;
 }
@@ -73,7 +73,7 @@ bool hash::compareChunk(shared_ptr<chunk> c) {
 std::shared_ptr<chunk> hash::data(bool load) {
 	std::shared_ptr<chunk> ret = _data;
 	if(ret==nullptr && isFlags(FLAG_NOAUTOLOAD)==false && load) {
-		ret = FS->buckets->getChunk(bucketIndex);
+		ret = STOR->buckets->getChunk(bucketIndex);
 		_data = ret;
 	}
 	return ret;
@@ -116,7 +116,7 @@ hashPtr hash::write(my_off_t offset,my_size_t size,const unsigned char * input) 
 	}
 	
 	//Not same: create new hash in filesystem
-	return FS->newHash(newHash,newChunk);
+	return STOR->newHash(newHash,newChunk);
 }
 
 bool hash::rest(void) {

@@ -19,9 +19,10 @@
 #include "hash.h"
 #include "context.h"
 
-using services::service;
 
 namespace filesystem{
+
+	using services::service;
 
 	enum class renOpt{
 		NORMAL,EXCHANGE,REPLACE
@@ -34,29 +35,6 @@ namespace filesystem{
 	class trackedChange;
 	typedef std::shared_ptr<chunk> metaPtr;
 	typedef uint64_t fileHandle;
-	class bucketInfo{
-	public:
-		bucketInfo(crypto::protocolInterface * p, bool isMeta);
-		bool meta=false;
-		crypto::protocolInterface * protocol;
-		locktype _mut;
-		uint64_t numLoaded = 0;
-		
-		
-		std::set<uint64_t> initList;
-		std::vector<bucketIndex_t> postList;
-		unique_ptr<bucketaccounting> accounting;
-		util::protected_unordered_map<uint64_t, shared_ptr<bucket>> loaded;
-		util::protected_unordered_map<const crypto::sha256sum,std::shared_ptr<hash>> hashesIndex;
-	
-		void clear(void);
-		void createNewBucket(uint64_t id);
-		void loadHashesFromBucket(uint64_t id);
-		void removeBucket(uint64_t id);
-		bucket* getBucket(uint64_t id);
-		shared_ptr<chunk> getChunk(const bucketIndex_t& index);
-		shared_ptr<hash> getHash(const bucketIndex_t& index);
-	};
 	class fs : public service {
 	private:
 		friend class trackedChange;
@@ -67,15 +45,13 @@ namespace filesystem{
 		
 		filePtr root; //This contains the 1st bootstrap inode.
 		
-		unique_ptr<crypto::protocolInterface> protocol;
-		unique_ptr<bucketInfo> metaBuckets,buckets;
 		static constexpr unsigned maxOpenFiles = 128;
 		locktype _mut;
 		util::protected_unordered_map<str,bucketIndex_t> pathInodeCache;
 		util::protected_unordered_map<const bucketIndex_t,filePtr> inodeFileCache;
 		std::array<util::atomic_shared_ptr<file>,maxOpenFiles> openHandles;
 		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx);
-		str _path;
+		
 		
 		
 
@@ -123,8 +99,6 @@ namespace filesystem{
 		void migrate(unique_ptr<crypto::protocolInterface> newProtocol);
 
 		
-		void setPath(const char * ipath);
-		const str & getPath();
 		str loadMetaDataFromINode(inode* node);
 		void storeMetaDataInINode(inode * rootNode,const str & input);
 		bool initFileSystem ( unique_ptr<crypto::protocolInterface> iprot,bool mustCreate ) ;
@@ -147,14 +121,8 @@ namespace filesystem{
 		metaPtr inoToChunk(bucketIndex_t ino);
 		void removeInode(bucketIndex_t ino);
 		
-		str getBucketFilename(int64_t id,bool metaBucket,crypto::protocolInterface * prot);
 		
 		
-		std::shared_ptr<hash> getHash(const bucketIndex_t & id);
-		//std::shared_ptr<hash> loadHash(bucketIndex_t id);
-		
-		
-		std::shared_ptr<hash> newHash(const crypto::sha256sum & in,std::shared_ptr<chunk> c);
 		hashPtr zeroHash();
 		
 		str getStats(void);

@@ -13,6 +13,7 @@
 #include "chunk.h"
 #include "bucket.h"
 #include "bucketaccounting.h"
+#include "storage.h"
 #include <chrono>
 #include <mutex>
 #include <random>
@@ -54,130 +55,6 @@ namespace filesystem{
 };
 
 
-bucketInfo::bucketInfo(crypto::protocolInterface * p, bool isMeta) {
-	_ASSERT(p!=nullptr);
-	meta = isMeta;
-	protocol = p;
-	clear();
-	
-}
-void bucketInfo::clear(void) {
-	FS->srvMESSAGE("Clearing ",meta?"meta":""," hashes");
-	auto hl = hashesIndex.list();
-	for(auto & i: hl) {
-		if(i) {
-			i->rest();
-		}
-	}
-	
-	hashesIndex.clear();//@todo: potential deadlock, perhaps use shared_recursive mutex?
-	
-	FS->srvMESSAGE("Clearing ",meta?"meta":""," buckets");
-	auto l = loaded.list();
-	//for()
-	for(auto & i: l) {
-		for(my_size_t a=0;a<chunksInBucket;a++) {
-			auto hsh = i->getHash(a);
-			if(hsh) {
-				hsh->rest();
-			}
-		}
-	}
-	loaded.clear();//@todo: deadlock: this will try to rest the hashes, the hashes will
-	
-	//l.clear();
-	FS->srvMESSAGE("Cleared ",meta?"meta":""," hashes & buckets");
-	
-}
-
-
-void bucketInfo::createNewBucket(uint64_t id) {
-	FS->srvDEBUG("Adding ",meta?"meta":""," bucket ", id);
-	//Nothing to see/do here
-}
-void bucketInfo::loadHashesFromBucket(uint64_t id) {
-	lckguard l(_mut);	
-	if(initList.find(id)!=initList.end()) {
-		return;
-	}
-	initList.insert(id);
-	try{
-		
-		//srvMESSAGE("loading hashes from ",fn);
-		auto * hb = getBucket(id);
-		_ASSERT(hb!=nullptr);
-		
-		//unsigned numInner  = 0;
-		for(unsigned a=0;a<chunksInBucket;a++) {
-			auto hsh = hb->getHash(a);
-			const bucketIndex_t b{id,a};
-			if(hsh!=nullptr ) {
-				
-				//++numInner;
-				if(meta==false) {
-					const auto hshStr = hsh->getHashPrimitive();
-					const auto hshIdx = hsh->getBucketIndex();
-					hashesIndex.insert(hshStr,hsh);
-					//CLOG("loading hash: ",hshIdx.fullindex," for ",meta?"meta":"data"," : ",reinterpret_cast<uint64_t>(hsh.get())," this:",reinterpret_cast<uint64_t>(this)," str:",hshStr.toLongStr());
-					_ASSERT(b == hshIdx);
-					_ASSERT(hsh->getRefCnt()>0);
-					++numLoaded;
-				} else {
-					auto chunk = hb->getChunk(a);
-					_ASSERT(chunk!=nullptr);
-					if(chunk->as<inode_header_only>()->header.type==inode_type::NONE) {
-						postList.push_back(b);
-					} else {
-						++numLoaded;
-					}
-					//if(meta) {_ASSERT(hb->getChunk(a)!=nullptr);}
-					
-				}
-			} else {
-				if(!(b==fs::rootIndex && meta == false)) {
-					postList.push_back(b);
-				}
-			}
-		}
-		
-		//srvMESSAGE("loading ",numInner," hashes from ",id);
-		//for all hashes 
-		//for()
-		
-		//the hashes table gets filled with empty, invalid hashes: these should be deleted.
-		
-	} catch(std::exception & e) {
-		FS->srvERROR("Failed to load hashes for ",meta?"meta":""," bucket:",id,": ",e.what());
-	}	
-	
-}
-void bucketInfo::removeBucket(uint64_t id) {
-	FS->srvMESSAGE("Removing ",meta?"meta":""," bucket ", id);
-	loaded.erase(id);
-}
-
-bucket* bucketInfo::getBucket(uint64_t id) {
-	
-	_ASSERT(protocol!=nullptr);
-	auto it = loaded.get(id);
-	if(it) {
-		return it.get();
-	}
-	auto fn = FS->getBucketFilename(id,meta,protocol);
-	loaded.insert(id,std::make_shared<bucket>(fn,meta?protocol->getProtoEncryptionKey():protocol->getEncryptionKey(),protocol));
-
-	auto * ret =  loaded.get(id).get();
-	_ASSERT(ret!=nullptr);
-	return ret;
-}
-
-shared_ptr<chunk> bucketInfo::getChunk(const bucketIndex_t& index) {
-	return getBucket(index.bucket)->getChunk(index.index);
-}
-
-shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
-	return getBucket(index.bucket)->getHash(index.index);
-}
 
 
 
@@ -192,15 +69,6 @@ fs::fs() :  service("FS") ,zeroChunk(chunk::newChunk(0,nullptr)), zeroSum(zeroCh
 	z.index = 255;
 	_ASSERT(z.fullindex == 0b111111111 ); //Assert the layout of the bucketIndex_t.
 
-	std::array<char,4096> wdpath;
-#ifdef _WIN32
-	_path = _getcwd(wdpath.data(),(int)wdpath.size());
-#else
-	_path = getcwd(wdpath.data(),wdpath.size());
-#endif
-	if( _path.back()!='/') {
-		_path.push_back('/');
-	}
 	
 	for(auto & i: _writeStats) {
 		i = 0;
@@ -232,13 +100,9 @@ fs::~fs() {
 		}
 	}
 	root.reset();
-	if(buckets)buckets->clear();	
 	if(up_and_running) {
 		storeMetadata();
 	}
-	if(metaBuckets)metaBuckets->clear();
-	
-	srvMESSAGE("remove lck: ",remove(str(_path+"._lock").c_str()));
 }
 
 extern bool Fully_up_and_running;
@@ -246,14 +110,6 @@ extern bool Fully_up_and_running;
 
 
 
-void fs::setPath(const char * ipath) {
-	_path = ipath;
-	
-}
-
-const str & fs::getPath() {
-	return _path;
-}
 
 
 
@@ -301,26 +157,18 @@ void fs::storeMetaDataInINode(inode * rootNode,const str & input) {
 
 
 bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCreate) {
-	protocol = std::move(iprot);
-	unsigned waits = 0;
-	_ASSERT(protocol->getProtoEncryptionKey()!=nullptr);
+	STOR->initStorage(std::move(iprot));
+	
+	
+	
 
 	
-	while(util::fileExists(_path+"._lock")) {
-		srvWARNING("filesystem is currently locked... waiting 1sec (remove ._lock if you believe this to be in error)");
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		++waits;
-	}
-	srvMESSAGE("adding ._lock");
-	util::putSystemString(_path+"._lock","test");	
 	
 	
-	buckets = make_unique<bucketInfo>(protocol.get(),false);
-	metaBuckets = make_unique<bucketInfo>(protocol.get(),true);
-	buckets->hashesIndex.insert(zeroSum,_zeroHash);
+	STOR->buckets->hashesIndex.insert(zeroSum,_zeroHash);
 	
 	auto metaInfo = ComplexType::newComplex();
-	const bool foundFileSystem = (metaBuckets->getBucket(1)->getHash(0)!=nullptr);
+	const bool foundFileSystem = (STOR->metaBuckets->getBucket(1)->getHash(0)!=nullptr);
 	if(mustCreate) {
 		//Create new filesystem
 		if(foundFileSystem) {
@@ -328,7 +176,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 			return false;
 		}
 		srvMESSAGE("Creating filesystem: generating key");
-		protocol->regenerateEncryptionKey();
+		STOR->prot()->regenerateEncryptionKey();
 		
 		auto rootChunk = chunk::newChunk(0,nullptr);
 		auto metaChunk = chunk::newChunk(0,nullptr);
@@ -341,7 +189,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		metaChunk->as<inode_ctd>()->myID = metaIndex;
 		metaInfo->getI("metaBuckets")=1;
 		metaInfo->getI("buckets")=1;
-		protocol->storeEncryptionKeyToBlock(metaInfo->getOPtr("encryptionKey"));
+		STOR->prot()->storeEncryptionKeyToBlock(metaInfo->getOPtr("encryptionKey"));
 		//store newly created metaData in metaChunk
 		auto metaString = metaInfo->serialize(0);
 		
@@ -350,8 +198,8 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		std::copy(metaString.begin(),metaString.end(),&metaChunk->as<inode_ctd>()->charContent[0]);
 		storeInode(rootChunk);
 		storeInode(metaChunk);
-		metaBuckets->getBucket(1)->store();
-		buckets->getBucket(1)->store();
+		STOR->metaBuckets->getBucket(1)->store();
+		STOR->buckets->getBucket(1)->store();
 	} else {
 		//Load existing filesystem
 		if(!foundFileSystem) {
@@ -361,7 +209,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	}
 	
 	//Load existing filesystem
-	metaBuckets->loadHashesFromBucket(1);
+	STOR->metaBuckets->loadHashesFromBucket(1);
 	//instance root node
 	auto rootChunk = inoToChunk(rootIndex);
 	auto metaChunk = inoToChunk(metaIndex);
@@ -377,39 +225,14 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	srvMESSAGE("loading key from metadata");
 	//Load meta info from root node: (including key)
-	_ASSERT(protocol->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
+	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
 	
 	//Make sure the zeroHash has a place in a bucket.
-	buckets->getBucket(rootIndex.bucket)->putHashAndChunk(rootIndex.index,_zeroHash,zeroChunk);
+	STOR->buckets->getBucket(rootIndex.bucket)->putHashAndChunk(rootIndex.index,_zeroHash,zeroChunk);
 	
-	{
-		auto l = metaInfo->getSize("metaBuckets");
-		srvMESSAGE("loading ",l," metaBuckets");
-		auto *ptr = &metaInfo->getI("metaBuckets",0,l);
-		for(uint64_t a=0;a<l;++a) {
-			metaBuckets->loadHashesFromBucket(ptr[a]);
-		}
-		metaBuckets->accounting = make_unique<bucketaccounting>(metaBuckets->initList,metaBuckets.get());
-		while(metaBuckets->postList.empty()==false) {
-			metaBuckets->accounting->post(metaBuckets->postList.back());
-			metaBuckets->postList.pop_back();
-		}
-		srvMESSAGE("Loaded ",metaBuckets->numLoaded," metaHashes from ",metaBuckets->loaded.size()," indices");
-	}
-	{
-		auto l = metaInfo->getSize("buckets");
-		srvMESSAGE("loading ",l," buckets");
-		script::int_t *ptr = &metaInfo->getI("buckets",0,l);
-		for(uint64_t a=0;a<l;++a) {
-			buckets->loadHashesFromBucket(ptr[a]);
-		}
-		buckets->accounting = make_unique<bucketaccounting>(buckets->initList,buckets.get());
-		while(buckets->postList.empty()==false) {
-			buckets->accounting->post(buckets->postList.back());
-			buckets->postList.pop_back();
-		}
-		srvMESSAGE("Loaded ",buckets->numLoaded," hashes from ",buckets->loaded.size()," indices");
-	}
+	STOR->metaBuckets->loadBuckets(metaInfo, "metaBuckets");
+	STOR->buckets->loadBuckets(metaInfo, "buckets");
+
 	std::vector<permission> pPerm;
 	root = make_shared<file>(rootChunk,"/",pPerm);
 	pathInodeCache.insert("/",rootIndex);
@@ -423,7 +246,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	Fully_up_and_running = true;
 	up_and_running = true;
-	_ASSERT(protocol->getEncryptionKey()!=nullptr);
+	_ASSERT(STOR->prot()->getEncryptionKey()!=nullptr);
 	srvMESSAGE("up and running");	
 	srvMESSAGE(FS->zeroHash()->getRefCnt()," references to zeroChunk.");
 	return true;
@@ -455,11 +278,11 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	auto newInode = chunk::newChunk(0,nullptr);
 	file::setFileDefaults(newInode,ctx);
 	newInode->as<inode>()->nlinks = 1;
-	auto ino = newInode->as<inode>()->myID = metaBuckets->accounting->fetch();
+	auto ino = newInode->as<inode>()->myID = STOR->metaBuckets->accounting->fetch();
 	srvDEBUG("trying to add node ",childname," to parent path ",parentname);
 	errorcode = parent->addNode(childname,newInode,false,ctx);
 	if(errorcode){
-		metaBuckets->accounting->post(ino);
+		STOR->metaBuckets->accounting->post(ino);
 		return nullptr;
 	}
 	storeInode(newInode);
@@ -475,7 +298,7 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 	
 	
-	srvMESSAGE("Migrating from protocol ",protocol->getVersion(), " to ", newProtocol->getVersion());
+	srvMESSAGE("Migrating from protocol ", STOR->prot()->getVersion(), " to ", newProtocol->getVersion());
 	_ASSERT(newProtocol->getProtoEncryptionKey()!=nullptr);
 	srvMESSAGE("Generating new key...");
 	newProtocol->regenerateEncryptionKey();
@@ -485,33 +308,9 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 	root->setMetaProperty("encryptionKey",key);
 	root->storeMetaProperties();
 	root->rest();
-	for(auto & bb:metaBuckets->loaded.clone()) {
-		srvMESSAGE("Converting meta bucket ",bb.first);
-		auto newFn = getBucketFilename(bb.first,true,newProtocol.get());
-		auto newBucket = std::make_unique<bucket>(newFn,newProtocol->getProtoEncryptionKey(),newProtocol.get());
-		bb.second->migrateTo(newBucket.get());
-		newBucket->store();
-		bb.second->del();
-		bb.second = std::move(newBucket);
-		metaBuckets->loaded.insert(bb.first,bb.second);
-	}
-	for(auto & bb:buckets->loaded.clone()) {
-		srvMESSAGE("Converting bucket ",bb.first);
-		auto newFn = getBucketFilename(bb.first,false,newProtocol.get());
-		auto newBucket = std::make_unique<bucket>(newFn,newProtocol->getEncryptionKey(),newProtocol.get());
-		bb.second->migrateTo(newBucket.get());
-		newBucket->store();
-		bb.second->del();
-		bb.second = std::move(newBucket);
-		buckets->loaded.insert(bb.first,bb.second);
-	}
-	
-	protocol= std::move(newProtocol);
-	
 
-	
-	
-	
+	STOR->migrate(std::move(newProtocol));
+
 }
 
 
@@ -523,35 +322,22 @@ void fs::storeMetadata(void) {
 			srvDEBUG("Storing metaBucket & bucket list in root metaData");
 			{
 				while(1) {
-					auto oldSize = metaBuckets->loaded.size();
+					auto oldSize = STOR->metaBuckets->loaded.size();
 					//should store the bucketList & metaBucket list in meta information (loop since changing the metadata may make it bigger)
-					root->setMetaProperty("metaBuckets",metaBuckets->accounting->getBucketsInUse());
-					root->setMetaProperty("buckets",buckets->accounting->getBucketsInUse());
+					root->setMetaProperty("metaBuckets", STOR->metaBuckets->accounting->getBucketsInUse());
+					root->setMetaProperty("buckets", STOR->buckets->accounting->getBucketsInUse());
 					root->storeMetaProperties();
-					if(oldSize==metaBuckets->loaded.size()) {
+					if(oldSize== STOR->metaBuckets->loaded.size()) {
 						break;
 					} else {
 						srvDEBUG("Storing metaBucket & bucket list in root metaData again");
 					}
 				}
 			}
-			//root->rest();//This rest is probably what is messing up the files... (
 			srvDEBUG("List storing done");
 		}
-		srvDEBUG("storing metaBucket data");
-		auto mbl = metaBuckets->loaded.list();
-		for(auto & i:mbl) {
-			if(i) {
-				i->store();//store operation will keep everything in memory but stores a copy to dsk by default
-			}
-		}
-		
-		srvDEBUG("clearing bucket data");
-		auto bl = buckets->loaded.list();
-		for(auto & i:bl) {
-			i->store(true);//store(true) operation will clear cache and stores a copy to dsk.
-			
-		}
+		STOR->storeAllData();
+
 		srvDEBUG("end storeMetadata");
 		srvMESSAGE("Metadata stored");
 	} catch (std::exception &e) {
@@ -564,7 +350,7 @@ metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 		if(prevNode->metaID.fullindex==0) {
 			srvDEBUG("Creating new (meta) inode_ctd record for ",prevNode->myID.fullindex);
 			auto c = chunk::newChunk(0,nullptr);
-			auto in = c->as<inode_ctd>()->myID = metaBuckets->accounting->fetch();
+			auto in = c->as<inode_ctd>()->myID = STOR->metaBuckets->accounting->fetch();
 			prevNode->metaID = in;
 			storeInode(c);
 		}
@@ -573,7 +359,7 @@ metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 	if(prevNode->nextID.fullindex==0) {
 		srvDEBUG("Creating new inode_ctd record for ",prevNode->myID.fullindex);
 		auto c = chunk::newChunk(0,nullptr);
-		auto in = c->as<inode_ctd>()->myID = metaBuckets->accounting->fetch();
+		auto in = c->as<inode_ctd>()->myID = STOR->metaBuckets->accounting->fetch();
 		prevNode->nextID = in;
 		storeInode(c);
 	}
@@ -584,7 +370,7 @@ metaPtr fs::createCtd(inode_ctd * prevNode) {
 	if(prevNode->nextID.fullindex==0) {
 		srvDEBUG("Creating new inode_ctd record for ",prevNode->myID.fullindex);
 		auto c = chunk::newChunk(0,nullptr);
-		auto in = c->as<inode_ctd>()->myID = metaBuckets->accounting->fetch();
+		auto in = c->as<inode_ctd>()->myID = STOR->metaBuckets->accounting->fetch();
 		prevNode->nextID = in;
 		storeInode(c);
 	}
@@ -597,12 +383,12 @@ void fs::storeInode(metaPtr in) {
 	switch(inodeType) {
 		case inode_type::NODE:{
 			auto idx = in->as<inode>()->myID;
-			metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
+			STOR->metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
 		}
 		break;
 		case inode_type::CTD:{
 			auto idx = in->as<inode_ctd>()->myID;
-			metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);			
+			STOR->metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
 		}
 		break;
 		default: 
@@ -854,8 +640,8 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			f.reset();
 			for(auto & li:inoToDel) {
 				srvDEBUG("unlink:: posting ino ",li.fullindex);
-				metaBuckets->getBucket(li.bucket)->clearHashAndChunk(li.index);
-				metaBuckets->accounting->post(li);
+				STOR->metaBuckets->getBucket(li.bucket)->clearHashAndChunk(li.index);
+				STOR->metaBuckets->accounting->post(li);
 			}
 		}
 		
@@ -950,7 +736,7 @@ my_err_t fs::renamemove(const char * source,const char * dest, const context * c
 
 metaPtr fs::inoToChunk(bucketIndex_t ino) {
 	_ASSERT(ino.bucket>0);
-	auto chunk = metaBuckets->getBucket(ino.bucket)->getChunk(ino.index);
+	auto chunk = STOR->metaBuckets->getBucket(ino.bucket)->getChunk(ino.index);
 	_ASSERT(chunk!=nullptr);
 	return chunk;
 }
@@ -984,66 +770,8 @@ void fs::unloadBuckets(void) {
 		srvDEBUG("have outstandingMetaWrites");
 	}
 }
-str fs::getBucketFilename(int64_t id,bool metaBucket,crypto::protocolInterface * prot) {
-	_ASSERT(prot!=nullptr);
-	str hsh = metaBucket? prot->getMetaBucketFileName(id) : prot->getBucketFileName(id);
-	util::MKDIR( _path+"dta");
-	util::MKDIR( _path+"dta/"+hsh.substr(0,2));
-	return _path+"dta/"+hsh.substr(0,2)+"/"+hsh;
-}
 
 
-std::shared_ptr<hash> fs::getHash(const bucketIndex_t& in) {
-	auto ret = buckets->getHash(in);
-	if (ret == nullptr) {
-		srvERROR("Missing hash with ID: ", in.fullindex);
-	}
-	return ret;
-}
-
-
-/*std::shared_ptr<hash> fs::loadHash(bucketIndex_t id) {
-	auto * bucket = buckets.getBucket(id.bucket);
-	_ASSERT(bucket!=nullptr);
-	auto hsh = bucket->getHash(id.index);
-	if(hsh) {
-		srvDEBUG("loaded hash from b",id.bucket,"i",id.index);
-		lckguard l(_mut);
-		const auto hshStr = hsh->getHashPrimitive();
-		buckets.hashesIndex[hshStr] = hsh;
-		buckets.hashesIndexNumerical[id] = hsh;//
-	} else {
-		return nullptr;
-	}
-	return hsh;
-}*/
-
-
-std::shared_ptr<hash> fs::newHash(const crypto::sha256sum & in,std::shared_ptr<chunk> c) {
-	//should check if this hash already exists in the filesystem:
-	{
-		auto it = buckets->hashesIndex.get(in);
-		if (it) {
-			if(!it->compareChunk(c)) {
-				srvERROR("HASH COLLISION in hash: ",in.toShortStr());
-			}
-			return it;
-		}
-	}
-	//Make new metaData in hashes:
-
-	{
-		auto bucket = buckets->accounting->fetch();
-		//CLOG("Fetched: ",bucket.fullindex," b:",bucket.bucket," i:",bucket.index);
-		auto newHash = std::make_shared<hash>(in, bucket, 0, c);
-		//Put both hash and chunk into storage (instead of on hash rest!)
-		buckets->getBucket(bucket.bucket)->putHashAndChunk(bucket.index,newHash,c);
-		
-		buckets->hashesIndex.insert(in,newHash);
-		//return the new hash object
-		return newHash;
-	}
-}
 
 hashPtr fs::zeroHash() {
 	return _zeroHash;
@@ -1134,12 +862,12 @@ str fs::getStats() {
 	const auto bucketSizeInKB = (chunkSize*chunksInBucket)/KB;
 	const auto chunkSizeInKB = (chunkSize)/KB;
 	str C;	
-	uint64_t numBuckets = buckets->accounting->getBucketsInUse().size();
-	uint64_t numMetaBuckets = metaBuckets->accounting->getBucketsInUse().size();
+	uint64_t numBuckets = STOR->buckets->accounting->getBucketsInUse().size();
+	uint64_t numMetaBuckets = STOR->metaBuckets->accounting->getBucketsInUse().size();
 	uint64_t hashesInMem = 0;
 	std::map<str,int64_t> hashDistribution;
 	uint64_t numDedupKbs = 0;
-	auto hashesIndex = buckets->hashesIndex.list();
+	auto hashesIndex = STOR->buckets->hashesIndex.list();
 	for(auto hsh: hashesIndex) {
 		if(hsh->hasData()) {
 			hashesInMem ++;
@@ -1162,7 +890,7 @@ str fs::getStats() {
 	unsigned numINodeCTD = 0;
 	unsigned freeINodes = 0;
 	unsigned dirs=0,files=0,links=0,fifo=0,unknown = 0;
-	auto bucketList = metaBuckets->loaded.list();
+	auto bucketList = STOR->metaBuckets->loaded.list();
 	for(auto b: bucketList) {
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			auto C = b->getChunk(a);
@@ -1191,7 +919,7 @@ str fs::getStats() {
 	}
 
 	C+= BUILDSTRING("(Dsk) Buckets: ",numBuckets," * ",bucketSizeInKB,"KB == ",(numBuckets * bucketSizeInKB)/KB,"MB\n");
-	C+= BUILDSTRING("(Dsk) Hashes: ",buckets->hashesIndex.size()," * ",chunkSizeInKB,"KB == ",(buckets->hashesIndex.size()*chunkSizeInKB)/KB,"MB\n");
+	C+= BUILDSTRING("(Dsk) Hashes: ", STOR->buckets->hashesIndex.size()," * ",chunkSizeInKB,"KB == ",(STOR->buckets->hashesIndex.size()*chunkSizeInKB)/KB,"MB\n");
 	C+= BUILDSTRING("(Mem) Hashes: ",hashesInMem," * ",chunkSizeInKB,"KB == ",(hashesInMem*chunkSizeInKB)/KB,"MB\n");
 	C+= BUILDSTRING("(Dsk&Mem) Metabuckets: ",numMetaBuckets," * ",bucketSizeInKB,"KB == ",(numMetaBuckets * bucketSizeInKB)/KB,"MB\n");
 	C+= BUILDSTRING("De-duplication stats:\n");
@@ -1226,7 +954,7 @@ str fs::getStats() {
 }
 my_size_t fs::metadataSize() {
 	lckguard l(_mut);
-	return metaBuckets->loaded.size() * chunksInBucket * chunkSize;
+	return STOR->metaBuckets->loaded.size() * chunksInBucket * chunkSize;
 }
 
 my_off_t fs::readMetadata(unsigned char* buf, my_size_t size, my_off_t offset) {
@@ -1236,7 +964,7 @@ my_off_t fs::readMetadata(unsigned char* buf, my_size_t size, my_off_t offset) {
 
 	my_off_t offsetInBuf = 0;
 	my_off_t actualOffset = 0;
-	auto metaBucketList = metaBuckets->loaded.list();
+	auto metaBucketList = STOR->metaBuckets->loaded.list();
 	for(auto it: metaBucketList) {
 		for(unsigned a=0;a<chunksInBucket;a++) {
 			if(offset>= actualOffset && offset<actualOffset+chunkSize) {
@@ -1257,7 +985,7 @@ my_off_t fs::readMetadata(unsigned char* buf, my_size_t size, my_off_t offset) {
 std::pair<uint64_t,uint64_t> fs::getStatFS() {
 	//@todo: locking?
 	
-	return std::make_pair<uint64_t,uint64_t>((uint64_t)chunkSize,buckets->hashesIndex.size()+metaBuckets->hashesIndex.size());
+	return std::make_pair<uint64_t,uint64_t>((uint64_t)chunkSize, STOR->buckets->hashesIndex.size()+ STOR->metaBuckets->hashesIndex.size());
 }
 
 str fs::getParentPath(const str & in) {

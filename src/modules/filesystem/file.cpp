@@ -7,6 +7,7 @@
 // 
 #include "file.h"
 #include "fs.h"
+#include "storage.h"
 #include "hash.h"
 #include "chunk.h"
 #include "bucket.h"
@@ -419,7 +420,7 @@ void file::loadHashes(void) {
 				i = c->as<inode_ctd>()->ctd[idx];
 			}
 			if(i.bucket) {
-				auto loadHash = FS->getHash(i);
+				auto loadHash = STOR->getHash(i);
 				if(loadHash) {
 					hashes.push_back(loadHash);
 				} else {

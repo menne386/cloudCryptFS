@@ -15,6 +15,7 @@
 #endif
 
 #include <modules/filesystem/fs.h>
+#include <modules/filesystem/storage.h>
 #include <modules/crypto/protocol.h>
 #include <modules/script/script_complex.h>
 #include <modules/util/files.h>
@@ -37,17 +38,19 @@ int main(int argc, char *argv[]) {
 	auto * args = parseArgs(argc,argv,&conf);
 
 	if(conf.loglevel) {
+		STOR->setLogLevel(std::stoi(conf.loglevel));
 		FS->setLogLevel(std::stoi(conf.loglevel));
+
 	}
 	
 	if(conf.source) {
 		//CLOG(conf.source);
-		FS->setPath(conf.source);
-		if(FS->getPath().back()!='/') {
+		STOR->setPath(conf.source);
+		if(STOR->getPath().back()!='/') {
 			CLOG("Error: source path should end with '/'");
 			exit(EXIT_FAILURE);
 		}
-		if(FS->getPath().front()=='.') {
+		if(STOR->getPath().front()=='.') {
 			CLOG("Error: source path should not start with '.'");
 			exit(EXIT_FAILURE);
 		}
@@ -55,8 +58,8 @@ int main(int argc, char *argv[]) {
 	
 	
 
-	g_LogFile = FS->getPath()+"log.txt";
-	CLOG("Source path: ",FS->getPath());
+	g_LogFile = STOR->getPath()+"log.txt";
+	CLOG("Source path: ", STOR->getPath());
 	CLOG("LogFile: ",g_LogFile);
 	
 
@@ -68,7 +71,7 @@ int main(int argc, char *argv[]) {
 	//std::shared_ptr<crypto::key> key,secret;
 	bool mustCreate = conf.create && str(conf.create) == "yes";
 	
-	str cfg = util::getSystemString(FS->getPath()+"config.json");
+	str cfg = util::getSystemString(STOR->getPath()+"config.json");
 	auto config = script::ComplexType::newComplex();
 	
 	if(mustCreate) {
@@ -78,7 +81,7 @@ int main(int argc, char *argv[]) {
 			FS->srvERROR("Found existing config.json, abort!");
 			return EXIT_FAILURE;
 		}
-		util::putSystemString(FS->getPath()+"config.json",config->serialize(1));
+		util::putSystemString(STOR->getPath()+"config.json",config->serialize(1));
 	} else {
 		if(cfg.empty()==false) {
 			FS->srvMESSAGE("Loading startup configuration");
@@ -141,7 +144,7 @@ int main(int argc, char *argv[]) {
 			newProtocol->enterPassword(passwd);
 		}
 		FS->migrate(std::move(newProtocol));
-		util::putSystemString(FS->getPath()+"config.json",newConfig->serialize(1));
+		util::putSystemString(STOR->getPath()+"config.json",newConfig->serialize(1));
 		services::stop_all_services();
 		return EXIT_SUCCESS;
 	}

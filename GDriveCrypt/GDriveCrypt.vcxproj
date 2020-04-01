@@ -135,7 +135,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>false</OmitFramePointers>
@@ -145,6 +145,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <PreprocessorDefinitions>NOMINMAX;_MBCS;SODIUM_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>_ASSERT</UndefinePreprocessorDefinitions>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -165,6 +166,7 @@
     <ClCompile Include="..\src\modules\filesystem\fs.cpp" />
     <ClCompile Include="..\src\modules\filesystem\hash.cpp" />
     <ClCompile Include="..\src\modules\filesystem\inode.cpp" />
+    <ClCompile Include="..\src\modules\filesystem\storage.cpp" />
     <ClCompile Include="..\src\modules\script\lexer.cpp" />
     <ClCompile Include="..\src\modules\script\script_complex.cpp" />
     <ClCompile Include="..\src\modules\services\serviceHandler.cpp" />
@@ -173,6 +175,7 @@
     <ClCompile Include="..\src\modules\util\files.cpp" />
     <ClCompile Include="..\src\modules\util\shared_recursive_mutex.cpp" />
     <ClCompile Include="..\src\modules\util\str.cpp" />
+    <ClCompile Include="storage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\buildn.h" />
@@ -189,6 +192,7 @@
     <ClInclude Include="..\src\modules\filesystem\hashbucket.h" />
     <ClInclude Include="..\src\modules\filesystem\inode.h" />
     <ClInclude Include="..\src\modules\filesystem\mode.h" />
+    <ClInclude Include="..\src\modules\filesystem\storage.h" />
     <ClInclude Include="..\src\modules\util\atomic_shared_ptr_list.h" />
     <ClInclude Include="..\src\modules\util\console.h" />
     <ClInclude Include="..\src\modules\util\endian.h" />
@@ -199,6 +203,7 @@
     <ClInclude Include="..\src\modules\util\switchhash.h" />
     <ClInclude Include="..\src\types.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="storage.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GDriveCrypt.rc" />
