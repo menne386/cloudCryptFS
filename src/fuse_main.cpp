@@ -406,7 +406,7 @@ int statfs_callback (const char *path , struct statvfs * buf) {
 
 	return 0;
 #else
-	 auto ret =  statvfs(str(FS->getPath()).c_str(), buf);
+	 auto ret =  statvfs(str(STOR->getPath()).c_str(), buf);
 	 buf->f_bsize = fs.first;
 	 buf->f_frsize = fs.first;
 	 return ret;
