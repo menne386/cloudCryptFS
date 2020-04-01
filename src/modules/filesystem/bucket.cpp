@@ -1,6 +1,12 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * The bucket class manages encrypted blocks of data and contains lists of chunks & hashes.
+ * 
+ * It will use protocol class to encrypt/decrypt data.
+ * Bucket files are of a fixed size.
+ */
 #include "bucket.h"
 #include "chunk.h"
 #include "main.h"

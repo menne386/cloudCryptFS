@@ -1,6 +1,14 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * The chunk class represents a fixed size (4096bytes) block of data.
+ * all operations are const with the exception of as<T>().
+ * The write operation will return a copy of the data with the added changes.
+ * 
+ * The as<T> operation will is used for interpreting the data as inode/inode_ctd records.
+ * 
+ */
 #include "chunk.h"
 #include "modules/crypto/sha256.h"
 

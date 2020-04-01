@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// file.cpp contains the filesystem::file class, this class governs the concept of a file and/or a directory
-// It translates reads/writes and other file operations into changes to the hashes and chunks that make up the file.
-// 
+/**
+ * file.cpp contains the filesystem::file class, this class governs the concept of a file and/or a directory
+ * It translates reads/writes and other file operations into changes to the hashes and chunks that make up the file.
+ */
+ 
 #include "file.h"
 #include "fs.h"
 #include "storage.h"

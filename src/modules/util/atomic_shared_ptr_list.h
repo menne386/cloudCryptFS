@@ -1,6 +1,11 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * This templated class can maintain a list of shared_ptr's.
+ * reading and writing operations to the list are atomic. (+shared lock)
+ * The swap and truncate operation lock.
+ */
 #ifndef UTIL_SHARED_ATOMIC_SHARED_PTR_LIST_H
 #define UTIL_SHARED_ATOMIC_SHARED_PTR_LIST_H
 

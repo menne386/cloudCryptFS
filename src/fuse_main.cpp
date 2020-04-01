@@ -1,6 +1,10 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/** 
+ * fuse_main.cpp is responsible for translating fuse (dokanfuse) calls to the internal fs class.
+ * Note, calls for advanced functions like locking, extended attributes still need to be implemented.
+ */
 #include "main.h"
 
 #define FUSE_USE_VERSION 27

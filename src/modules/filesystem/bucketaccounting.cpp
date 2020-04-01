@@ -1,6 +1,10 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * The class bucketaccounting is responsible for tracking free bucketIndex's
+ * Most operation are atomic. Will also maintain a <set> of used buckets.
+ */
 #define __FILESYSTEM_BUCKETACCOUNTING_CPP
 #include "bucketaccounting.h"
 #include "storage.h"

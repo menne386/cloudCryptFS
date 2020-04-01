@@ -1,6 +1,9 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * The key class represents a key, as this is sensitive data it will try to make sure keys are never in memory long.
+ */
 #include "key.h"
 #include "main.h"
 #include "sha256.h"

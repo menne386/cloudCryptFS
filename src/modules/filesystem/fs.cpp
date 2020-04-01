@@ -1,6 +1,11 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * fs class is responsible for maintaining files/directories.
+ * 
+ * receives filesystem call from fuse_main.cpp
+ */
 #define _FS_CPP
 #include "fs.h"
 #include "main.h"

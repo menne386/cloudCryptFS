@@ -1,6 +1,9 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * the inode class is the class that represent metaData for a file, it should not change without the header.version being updated.
+ */
 #define FILESYSTEM_INODE_CPP
 #include "inode.h"
 #include "modules/util/endian.h"

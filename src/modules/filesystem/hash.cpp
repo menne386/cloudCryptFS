@@ -1,6 +1,15 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * The hash class contains metaData for a chunk, contains reference count, a sha256sum and such
+ * the incRefCnt will check the hash is not flagged for deletion
+ * the decRefCnt will remove the hash from the storage layer.
+ * 
+ * the read and write operation will pull the associated chunk from the bucket.
+ * 
+ * All operation will inform lower storage layer of changes so the lower layer knows when to write buckets.
+ */
 #include "hash.h"
 #include "chunk.h"
 #include "bucket.h"

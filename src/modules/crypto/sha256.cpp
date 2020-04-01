@@ -1,6 +1,11 @@
 // Copyright 2018 Menne Kamminga <kamminga DOT m AT gmail DOT com>. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+/**
+ * The sha256sum class will calculate a hash of supplied data uppon creation.
+ * Can show it as strings, and be directly used as a unordered_map index.
+ * 
+ */
 #include "sha256.h"
 #include "main.h"
 #include <sodium.h>
