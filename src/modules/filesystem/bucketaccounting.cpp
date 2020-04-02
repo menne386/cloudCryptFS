@@ -23,7 +23,7 @@ bucketaccounting::bucketaccounting(std::set<uint64_t> _buckets,bucketInfo * iinf
 	availableList = nullptr;
 	freeList = &_records[0];
 	for(auto & i: _records) {
-		i.data.fullindex = 0;
+		i.data = 0;
 	}
 	cleanRecords();
 }
@@ -107,8 +107,7 @@ void bucketaccounting::createBuckets(void) {
 		bucketsInUse.insert(myBucketId);
 		++hint;
 		for(unsigned b=0;b<chunksInBucket;b++) {
-			_records[recId].data.bucket = myBucketId;
-			_records[recId].data.index = b;
+			_records[recId].data = bucketIndex_t{myBucketId,b};
 			++recId;
 		}
 		info->createNewBucket(myBucketId);
@@ -129,7 +128,7 @@ void bucketaccounting::releaseBuckets(void) {
 	//Count up the ID's per bucket
 	std::map<uint64_t,uint32_t> _availableMap;
 	for (auto & n:_records){
-		_availableMap[n.data.bucket] ++;
+		_availableMap[n.data.bucket()] ++;
 	}
 	
 	//Find the buckets that have 100
@@ -143,8 +142,8 @@ void bucketaccounting::releaseBuckets(void) {
 	std::vector<accountingNode *> delList,availList;
 
 	for(auto & n:_records) {
-		if(n.data.fullindex == 0 || _toDelete.find(n.data.bucket)!=_toDelete.end()) {
-			n.data.fullindex = 0;
+		if(n.data.fullindex() == 0 || _toDelete.find(n.data.bucket())!=_toDelete.end()) {
+			n.data = 0;
 			delList.push_back(&n);
 		} else {
 			availList.push_back(&n);
@@ -207,7 +206,7 @@ bucketIndex_t bucketaccounting::fetch() {
 		auto * node = takeFromList(availableList);
 		if(node) {
 			ret = node->data;
-			node->data.fullindex = 0;
+			node->data = 0;
 			insertIntoList(node,freeList);
 			break;
 		} else {

@@ -75,24 +75,24 @@ std::vector<bucketIndex_t> filesystem::file::setDeletedAndReturnAllUsedInodes() 
 	std::vector<bucketIndex_t> ret;
 	ret.push_back(INode()->myID);
 	
-	if(INode()->nextID.fullindex) {
+	if(INode()->nextID) {
 		auto c = FS->inoToChunk(INode()->nextID);
 		while(c) {
 			ret.push_back(c->as<inode_ctd>()->myID);
 			auto next = c->as<inode_ctd>()->nextID;
-			if(next.fullindex) {
+			if(next) {
 				c = FS->inoToChunk(next);
 			} else {
 				c = nullptr;
 			}
 		}
 	}
-	if(INode()->metaID.fullindex) {
+	if(INode()->metaID) {
 		auto c = FS->inoToChunk(INode()->metaID);
 		while(c) {
 			ret.push_back(c->as<inode_ctd>()->myID);
 			auto next = c->as<inode_ctd>()->nextID;
-			if(next.fullindex) {
+			if(next) {
 				c = FS->inoToChunk(next);
 			} else {
 				c = nullptr;
@@ -110,7 +110,7 @@ void file::storeMetaProperties(void) {
 	if(!valid())return;
 	lckunique l(_mut); // Need lock to protect extraMeta variable
 	
-	if(INode()->myID.bucket) {
+	if(INode()->myID) {
 		str metaString = extraMeta->serialize(0);
 		if(metaString.size()>2) {
 			FS->srvDEBUG("t_file::storeMetaData: ", path, ":", metaString.size());
@@ -157,7 +157,7 @@ bool file::requireType(fileType required) {
 fileType file::type() {
 	if(_type == specialFile::ERROR)return fileType::INVALID;
 	
-	switch(INode()->mode & mode::TYPE) {
+	switch(INode()->mode.type()) {
 		case mode::TYPE_DIR: return fileType::DIR;
 		case mode::TYPE_REG: return fileType::FILE;
 		case mode::TYPE_LNK: return fileType::LNK;
@@ -189,7 +189,7 @@ my_mode_t filesystem::file::mode() {
 }
 
 my_ino_t filesystem::file::ino() {
-	return INode()->myID.fullindex;
+	return INode()->myID;
 }
 
 timeHolder file::mtime() {
@@ -225,7 +225,7 @@ my_err_t file::chmod(my_mode_t mod,const context * ctx) {
 	auto tv = currentTime();
 	INode()->mtime = tv;
 	INode()->ctime = tv;
-	_ASSERT((mod & mode::TYPE) == (INode()->mode & mode::TYPE));
+	_ASSERT((mod & mode::TYPE) == (INode()->mode.type()));
 	INode()->mode = mod;
 	
 	
@@ -279,8 +279,7 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 
 	}
 	if(uid!=maxUid || gid != maxGid) {
-		INode()->mode |=mode::FLAG_SGID|mode::FLAG_SUID; //Somehow the whole system crashes when these 2 lines are not here! this should NOT be possible!
-		INode()->mode ^=mode::FLAG_SGID|mode::FLAG_SUID;
+		INode()->mode.clear(mode::FLAG_SGID|mode::FLAG_SUID);
 	}
 
 
@@ -316,10 +315,10 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	}
 	
 	//if we overwrite a node here, we throw away an inode.
-	_ASSERT(nodeMeta->as<inode>()->myID.bucket!=0);
+	_ASSERT(nodeMeta->as<inode>()->myID);
 	
-	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID.fullindex, " mode:",nodeMeta->as<inode>()->mode.load());
-	directory->getI(name) = nodeMeta->as<inode>()->myID.fullindex;
+	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID, " mode:",nodeMeta->as<inode>()->mode.load());
+	directory->getI(name) = (uint64_t)nodeMeta->as<inode>()->myID;
 	if(!writeDirectoryContent(directory)) {
 		return EE::io_error;
 	}
@@ -373,7 +372,7 @@ my_err_t file::hasNode(const str & name,const context * ctx,bucketIndex_t * id) 
 		return EE::entity_not_found;
 	}
 	if(id) {
-		id->fullindex = directory->getI(name);
+		*id = directory->getI(name);
 	}
 	
 	return EE::ok;
@@ -421,7 +420,7 @@ void file::loadHashes(void) {
 				//We are loading from an inode_ctd
 				i = c->as<inode_ctd>()->ctd[idx];
 			}
-			if(i.bucket) {
+			if(i) {
 				auto loadHash = STOR->getHash(i);
 				if(loadHash) {
 					hashes.push_back(loadHash);
@@ -437,7 +436,7 @@ void file::loadHashes(void) {
 			if(idx>=imax) {
 				imax = inode_ctd::numctd;
 				idx=0;
-				if(nextId.bucket!=0) {
+				if(nextId) {
 					c = FS->inoToChunk(nextId);
 					nextId = c->as<inode_ctd>()->nextID;
 				} else {
@@ -786,7 +785,7 @@ bool file::rest() {
 		for(auto & H:hashes) {
 			_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
 			if(H->getRefCnt()<=0) {
-				FS->srvERROR("file::rest is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex().fullindex);
+				FS->srvERROR("file::rest is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex());
 			}
 			if(H->rest()) {
 				++num;
@@ -802,7 +801,7 @@ bool file::rest() {
 			++idx;
 			if(idx>=imax) {
 				FS->storeInode(c);
-				if(nextId.bucket!=0) {
+				if(nextId) {
 					c = FS->inoToChunk(nextId);
 				} else {
 					if(imax == inode::numctd) {
@@ -822,12 +821,12 @@ bool file::rest() {
 		FS->storeInode(c);
 	} else {
 		//Make sure we truncate the inode list, so loadHashes does not accidently load data from other files.
-		INode()->ctd[0].fullindex = 0;
+		INode()->ctd[0] = 0;
 	}
 	
 	FS->srvDEBUG("file::rest ",num,"/",hashes.size()," hashes for ", path," with ",newMetaChunks," new metaChunks");
 	
-	if(INode()->myID.bucket) {
+	if(INode()->myID) {
 		FS->storeInode(metaChunk);
 	}
 	

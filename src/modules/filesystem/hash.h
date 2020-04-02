@@ -13,25 +13,41 @@
 namespace filesystem {
 	class chunk;
 	/**
-	 * @todo write docs
-	 * new design ideas: - use an atomic for the refCount,
+	 * 
 	 */
 	class bucketIndex_t {
-		public:
+		private:
 			union{
 				struct {
-					uint64_t index : 8;
-					uint64_t bucket : 56;
+					uint64_t m_index : 8;
+					uint64_t m_bucket : 56;
 				};
-				uint64_t fullindex;
+				std::atomic<uint64_t> m_fullindex;
 			};
-		explicit constexpr bucketIndex_t(uint64_t bck,uint64_t idx): index(idx),bucket(bck) {}
-		explicit constexpr bucketIndex_t(): fullindex(0) {}
-		explicit constexpr bucketIndex_t(uint64_t fullidx): fullindex(fullidx) {}
-		operator uint64_t() const { return fullindex; }
-		bool operator==(const bucketIndex_t& i) const {	return i.fullindex == fullindex; }
+		public:
+		
+		explicit constexpr bucketIndex_t(uint64_t bck,uint64_t idx): m_index(idx),m_bucket(bck) {}
+		explicit constexpr bucketIndex_t(): m_fullindex(0) {}
+		explicit constexpr bucketIndex_t(uint64_t fullidx): m_fullindex(fullidx) {}
+		
+		
+		bucketIndex_t(const bucketIndex_t& i): m_fullindex(i.m_fullindex.load()) {}
+		
+		operator uint64_t() const { return m_fullindex; }
+		operator bool () const { return m_fullindex!=0; }
+		
+		bool operator==(const bucketIndex_t& i) const {	return i.m_fullindex == m_fullindex; }
+		bool operator!=(const bucketIndex_t& i) const {	return i.m_fullindex != m_fullindex; }
+		
+		bucketIndex_t & operator =(const bucketIndex_t& i) { m_fullindex.store(i.m_fullindex.load()); return *this; }
+		bucketIndex_t & operator =(const uint64_t& i) { m_fullindex.store(i); return *this; }
+		
+		uint64_t fullindex() const { return m_fullindex.load(); }
+		uint64_t bucket() const { return m_bucket; }
+		uint8_t index() const { return m_index; }		
 	};
 	
+	str to_string(const bucketIndex_t & in);
 	
 
 	static_assert(sizeof(bucketIndex_t)==sizeof(uint64_t),"buckerIndex_t wrong size");
@@ -83,13 +99,16 @@ namespace filesystem {
 	};
 	typedef std::shared_ptr<hash> hashPtr;
 
+	
 }
 
 template<> struct std::hash<const ::filesystem::bucketIndex_t> {
 	std::size_t operator()(const ::filesystem::bucketIndex_t& s) const noexcept {
-		return s.fullindex; 
+		return s.fullindex(); 
 	}
 };
+
+
 
 
 #endif // FILESYSTEM_HASH_H

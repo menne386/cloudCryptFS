@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "chunk.h"
+#include "mode.h"
 
 namespace filesystem { 
 	//INode class represents the metadata in binairy form for storage on disk
@@ -35,7 +36,7 @@ namespace filesystem {
 	typedef std::atomic<my_uid_t> atomic_uid_t;
 	typedef std::atomic<my_gid_t> atomic_gid_t;
 	typedef std::atomic<uint32_t> atomic_metasize_t;
-	typedef std::atomic<my_mode_t> atomic_mode_t;
+	typedef filesystem::mode atomic_mode_t;
 	class inode_header_only final{
 	public:
 		inode_header header;

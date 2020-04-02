@@ -3,19 +3,10 @@
 // license that can be found in the LICENSE file.
 #ifndef _MAIN_H
 #define _MAIN_H
+
 #include "types.h"
 
-
-namespace std{
-	str to_string(const char * in);
-	str to_string(const str & in);
-};
-
-/*BUILDSTRING: return a string build from all the arguments. for example: BUILDSTRING(1," some text",2.14)*/
-str BUILDSTRING();
-template<typename T, typename... Targs> str BUILDSTRING(T value, Targs... Fargs) {
-	return str(std::to_string(value).c_str()) + BUILDSTRING(Fargs...);
-}
+#include "modules/util/buildstring.h"
 
 /*CLOG: Print all arguments to console log*/
 void CLOG(const str & MESSAGE);

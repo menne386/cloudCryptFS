@@ -158,11 +158,11 @@ bucket* bucketInfo::getBucket(uint64_t id) {
 }
 
 shared_ptr<chunk> bucketInfo::getChunk(const bucketIndex_t& index) {
-	return getBucket(index.bucket)->getChunk(index.index);
+	return getBucket(index.bucket())->getChunk(index.index());
 }
 
 shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
-	return getBucket(index.bucket)->getHash(index.index);
+	return getBucket(index.bucket())->getHash(index.index());
 }
 
 void filesystem::bucketInfo::loadBuckets(script::complextypePtr metaInfo,const str & name) {
@@ -282,7 +282,7 @@ void filesystem::storage::storeAllData() {
 std::shared_ptr<hash> storage::getHash(const bucketIndex_t& in) {
 	auto ret = buckets->getHash(in);
 	if (ret == nullptr) {
-		srvERROR("Missing hash with ID: ", in.fullindex);
+		srvERROR("Missing hash with ID: ", in);
 	}
 	return ret;
 }
@@ -307,7 +307,7 @@ std::shared_ptr<hash> storage::newHash(const crypto::sha256sum& in, std::shared_
 		//CLOG("Fetched: ",bucket.fullindex," b:",bucket.bucket," i:",bucket.index);
 		auto newHash = std::make_shared<hash>(in, bucket, 0, c);
 		//Put both hash and chunk into storage (instead of on hash rest!)
-		buckets->getBucket(bucket.bucket)->putHashAndChunk(bucket.index, newHash, c);
+		buckets->getBucket(bucket.bucket())->putHashAndChunk(bucket.index(), newHash, c);
 
 		buckets->hashesIndex.insert(in, newHash);
 		//return the new hash object

@@ -18,6 +18,10 @@
 #include <mutex>
 using namespace filesystem;
 
+str filesystem::to_string(const bucketIndex_t & in) {
+	return util::to_string(in.bucket())+"#"+util::to_string(in.index());
+}
+
 //protect hash with mutex!
 void hash::clearFlags(flagtype in) {
 	auto expected = flags.load();
@@ -47,7 +51,7 @@ script::int_t hash::incRefCnt() {
 	++refcnt;
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE)==false) {
 		_ASSERT(isFlags(FLAG_DELETED)==false);//Never revide a dead hash!
-		STOR->buckets->getBucket(bucketIndex.bucket)->hashChanged();
+		STOR->buckets->getBucket(bucketIndex.bucket())->hashChanged();
 	}
 	return refcnt;
 }
@@ -61,14 +65,14 @@ script::int_t hash::decRefCnt() {
 			_ASSERT(hsh.get()==this);
 			if (STOR->buckets->hashesIndex.erase(_hsh) == 1) {
 				//srvDEBUG("Posting hash+bucket: ",in.toShortStr(),bucket.fullindex);
-				STOR->buckets->getBucket(bucketIndex.bucket)->clearHashAndChunk(bucketIndex.index);
+				STOR->buckets->getBucket(bucketIndex.bucket())->clearHashAndChunk(bucketIndex.index());
 				STOR->buckets->accounting->post(bucketIndex);
 			} else {
 				STOR->srvERROR("Failed to delete hash ",_hsh.toShortStr(), " from global index");
 			}
 			clearData();
 		}
-		STOR->buckets->getBucket(bucketIndex.bucket)->hashChanged();
+		STOR->buckets->getBucket(bucketIndex.bucket())->hashChanged();
 	}
 	return refcnt;
 }

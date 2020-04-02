@@ -199,7 +199,7 @@ void bucket::clearHashAndChunk(int64_t id) {
 void bucket::putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::shared_ptr<chunk> c) {
 	auto hsh = c->getHash();
 	auto rootHash = make_shared<hash>(hsh,idx,irefcnt,nullptr,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD);
-	putHashAndChunk(idx.index,rootHash,c);
+	putHashAndChunk(idx.index(),rootHash,c);
 }
 
 
@@ -275,7 +275,7 @@ void bucket::store(bool clearCache) {
 				hptr->refcnt = h->getRefCnt();
 				hptr->hash = h->getHashPrimitive();
 			} else {
-				hptr->bucket.fullindex = 0;
+				hptr->bucket = 0;
 				hptr->refcnt = 0;
 				hptr->hash = emptyHsh;
 			}

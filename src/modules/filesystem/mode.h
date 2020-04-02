@@ -4,83 +4,54 @@
 #ifndef FILESYSTEM_MODE_H
 #define FILESYSTEM_MODE_H
 
+#include "types.h"
+
 #include <atomic>
+#ifndef _WIN32
+#include "unistd.h"
+#include <fcntl.h>
+#else
+#include <sys/stat.h>
+#endif
 
 /*
- *
- *
- * @todo: proper mode conversion to allow filesystem particulars to be abstracted away.
- * @todo: atomic mode!
-#define S_IFMT  00170000
-#define S_IFSOCK 0140000
-#define S_IFLNK	 0120000
-#define S_IFREG  0100000
-#define S_IFBLK  0060000
-#define S_IFDIR  0040000
-#define S_IFCHR  0020000
-#define S_IFIFO  0010000
-
-#define S_ISUID  0004000
-#define S_ISGID  0002000
-#define S_ISVTX  0001000
-
-#define S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
-#define S_ISREG(m)	(((m) & S_IFMT) == S_IFREG)
-#define S_ISDIR(m)	(((m) & S_IFMT) == S_IFDIR)
-#define S_ISCHR(m)	(((m) & S_IFMT) == S_IFCHR)
-#define S_ISBLK(m)	(((m) & S_IFMT) == S_IFBLK)
-#define S_ISFIFO(m)	(((m) & S_IFMT) == S_IFIFO)
-#define S_ISSOCK(m)	(((m) & S_IFMT) == S_IFSOCK)
-
-#define S_IRWXU 00700
-#define S_IRUSR 00400
-#define S_IWUSR 00200
-#define S_IXUSR 00100
-
-#define S_IRWXG 00070
-#define S_IRGRP 00040
-#define S_IWGRP 00020
-#define S_IXGRP 00010
-
-#define S_IRWXO 00007
-#define S_IROTH 00004
-#define S_IWOTH 00002
-#define S_IXOTH 00001
+ *proper mode conversion to allow filesystem particulars to be abstracted away.
 */
 
 namespace filesystem {
 
 	class mode{
 		private:
-		std::atomic_int _inner;
+		std::atomic<my_mode_t> _inner;
 
 		public:
-		static constexpr int TYPE      = 00170000;
-		static constexpr int TYPE_LNK  = 00120000;
-		static constexpr int TYPE_REG  = 00100000;
-		static constexpr int TYPE_DIR  = 00040000;
-		static constexpr int TYPE_FIFO = 00010000;
+		
+		static constexpr my_mode_t TYPE      = 00170000;
+		static constexpr my_mode_t TYPE_LNK  = 00120000;
+		static constexpr my_mode_t TYPE_REG  = 00100000;
+		static constexpr my_mode_t TYPE_DIR  = 00040000;
+		static constexpr my_mode_t TYPE_FIFO = 00010000;
 
-		static constexpr int FLAG_SUID = 00004000;
-		static constexpr int FLAG_SGID = 00002000;
-		static constexpr int FLAG_SVTX = 00001000;
+		static constexpr my_mode_t FLAG_SUID = 00004000;
+		static constexpr my_mode_t FLAG_SGID = 00002000;
+		static constexpr my_mode_t FLAG_SVTX = 00001000;
 
-		static constexpr int USER_RWX  = 00000700;
-		static constexpr int USER_R    = 00000400;
-		static constexpr int USER_W    = 00000200;
-		static constexpr int USER_X    = 00000100;
+		static constexpr my_mode_t USER_RWX  = 00000700;
+		static constexpr my_mode_t USER_R    = 00000400;
+		static constexpr my_mode_t USER_W    = 00000200;
+		static constexpr my_mode_t USER_X    = 00000100;
 
-		static constexpr int GROUP_RWX = 00000070;
-		static constexpr int GROUP_R   = 00000040;
-		static constexpr int GROUP_W   = 00000020;
-		static constexpr int GROUP_X   = 00000010;
+		static constexpr my_mode_t GROUP_RWX = 00000070;
+		static constexpr my_mode_t GROUP_R   = 00000040;
+		static constexpr my_mode_t GROUP_W   = 00000020;
+		static constexpr my_mode_t GROUP_X   = 00000010;
 
-		static constexpr int WORLD_RWX = 00000007;
-		static constexpr int WORLD_R   = 00000004;
-		static constexpr int WORLD_W   = 00000002;
-		static constexpr int WORLD_X   = 00000001;
+		static constexpr my_mode_t WORLD_RWX = 00000007;
+		static constexpr my_mode_t WORLD_R   = 00000004;
+		static constexpr my_mode_t WORLD_W   = 00000002;
+		static constexpr my_mode_t WORLD_X   = 00000001;
 
-		/*static constexpr bool isNativeCompatible = 
+		static constexpr bool isNativeCompatible = 
 		 TYPE      == S_IFMT  && 
 		 TYPE_LNK  == S_IFLNK && 
 		 TYPE_REG  == S_IFREG && 
@@ -105,13 +76,23 @@ namespace filesystem {
 		 WORLD_R   == S_IROTH &&
 		 WORLD_W   == S_IWOTH && 
 		 WORLD_X   == S_IXOTH; 
-
-
-		int toNative();
-		static mode makeFromSystem(int m);*/
-
-
+		 		 
+		 inline bool is_lock_free() { return _inner.is_lock_free(); }
+		 
+		 inline my_mode_t type() const { return _inner.load() & TYPE; }
+		 inline void setType(my_mode_t t) { _inner |= (t&TYPE); }
+		 
+		 inline void set(const my_mode_t f) { _inner |= f; }
+		 inline void clear(const my_mode_t f) { _inner |= f; _inner ^= f; }
+		 
+		 inline my_mode_t load() const { return _inner.load(); }
+		 inline operator my_mode_t () const { return load(); }
+		 
+		 inline mode & operator = (const my_mode_t  in) { _inner.store(in); return *this; } 
+		 
 	};
+	
+	static_assert(mode::isNativeCompatible,"This system is not posix compatible enough to compile this code.");
 
 };
 

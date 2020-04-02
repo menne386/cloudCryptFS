@@ -165,7 +165,6 @@ void assertfail(int condition,const char * string) {
 	}
 }
 
-
 void CLOG(const char* MESSAGE) {
 	std::ofstream F;
 	F.open(g_LogFile.c_str(),std::ios::out|std::ios::app);
@@ -181,15 +180,7 @@ void CLOG(const str & MESSAGE) {
 	CLOG(MESSAGE.c_str());
 }
 
-namespace std{
-	str to_string(const char * in) {return in;}
-	str to_string(const str & in) {return in;}
-};
 
-
-str BUILDSTRING() {
-	return "";
-}
 
 #ifdef _WIN32
 int getuid() {return 0;}

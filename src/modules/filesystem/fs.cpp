@@ -65,14 +65,11 @@ namespace filesystem{
 
 fs::fs() :  service("FS") ,zeroChunk(chunk::newChunk(0,nullptr)), zeroSum(zeroChunk->getHash()), _zeroHash(std::make_shared<hash>(zeroSum, bucketIndex_t{1,0}, 1, zeroChunk,hash::FLAG_NOAUTOSTORE|hash::FLAG_NOAUTOLOAD)){
 	outstandingChanges=0;
-	bucketIndex_t z;
-	z.index = 1;
-	z.bucket = 1000;
-	_ASSERT(z.fullindex == 256001 ); //Assert the layout of the bucketIndex_t.
+	bucketIndex_t z{1000,1};
+	_ASSERT(z.fullindex() == 256001 ); //Assert the layout of the bucketIndex_t.
 
-	z.bucket = 1;
-	z.index = 255;
-	_ASSERT(z.fullindex == 0b111111111 ); //Assert the layout of the bucketIndex_t.
+	z = bucketIndex_t{1,255};
+	_ASSERT(z.fullindex() == 0b111111111 ); //Assert the layout of the bucketIndex_t.
 
 	
 	for(auto & i: _writeStats) {
@@ -129,7 +126,7 @@ str filesystem::fs::loadMetaDataFromINode(filesystem::inode* node) {
 		std::shared_ptr<chunk> c;
 		while(metaNode) {
 			ret.append(&metaNode->charContent[0],sizeof(inode_ctd::charContent));
-			if(metaNode->nextID.bucket==0) {
+			if(!metaNode->nextID) {
 				break;
 			}
 			
@@ -233,7 +230,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
 	
 	//Make sure the zeroHash has a place in a bucket.
-	STOR->buckets->getBucket(rootIndex.bucket)->putHashAndChunk(rootIndex.index,_zeroHash,zeroChunk);
+	STOR->buckets->getBucket(rootIndex.bucket())->putHashAndChunk(rootIndex.index(),_zeroHash,zeroChunk);
 	
 	STOR->metaBuckets->loadBuckets(metaInfo, "metaBuckets");
 	STOR->buckets->loadBuckets(metaInfo, "buckets");
@@ -352,8 +349,8 @@ void fs::storeMetadata(void) {
 
 metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 	if(forMeta) {
-		if(prevNode->metaID.fullindex==0) {
-			srvDEBUG("Creating new (meta) inode_ctd record for ",prevNode->myID.fullindex);
+		if(!prevNode->metaID) {
+			srvDEBUG("Creating new (meta) inode_ctd record for ",prevNode->myID);
 			auto c = chunk::newChunk(0,nullptr);
 			auto in = c->as<inode_ctd>()->myID = STOR->metaBuckets->accounting->fetch();
 			prevNode->metaID = in;
@@ -361,8 +358,8 @@ metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 		}
 		return inoToChunk(prevNode->metaID);
 	}
-	if(prevNode->nextID.fullindex==0) {
-		srvDEBUG("Creating new inode_ctd record for ",prevNode->myID.fullindex);
+	if(!prevNode->nextID) {
+		srvDEBUG("Creating new inode_ctd record for ",prevNode->myID);
 		auto c = chunk::newChunk(0,nullptr);
 		auto in = c->as<inode_ctd>()->myID = STOR->metaBuckets->accounting->fetch();
 		prevNode->nextID = in;
@@ -372,8 +369,8 @@ metaPtr fs::createCtd(inode * prevNode, bool forMeta) {
 }
 
 metaPtr fs::createCtd(inode_ctd * prevNode) {
-	if(prevNode->nextID.fullindex==0) {
-		srvDEBUG("Creating new inode_ctd record for ",prevNode->myID.fullindex);
+	if(!prevNode->nextID) {
+		srvDEBUG("Creating new inode_ctd record for ",prevNode->myID);
 		auto c = chunk::newChunk(0,nullptr);
 		auto in = c->as<inode_ctd>()->myID = STOR->metaBuckets->accounting->fetch();
 		prevNode->nextID = in;
@@ -388,12 +385,12 @@ void fs::storeInode(metaPtr in) {
 	switch(inodeType) {
 		case inode_type::NODE:{
 			auto idx = in->as<inode>()->myID;
-			STOR->metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
+			STOR->metaBuckets->getBucket(idx.bucket())->putHashedChunk(idx,1,in);
 		}
 		break;
 		case inode_type::CTD:{
 			auto idx = in->as<inode_ctd>()->myID;
-			STOR->metaBuckets->getBucket(idx.bucket)->putHashedChunk(idx,1,in);
+			STOR->metaBuckets->getBucket(idx.bucket())->putHashedChunk(idx,1,in);
 		}
 		break;
 		default: 
@@ -413,7 +410,7 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 	}
 	{
 		auto itr = pathInodeCache.get(filename);
-		if(itr.bucket) {
+		if(itr) {
 			auto F = inodeToFile(itr,filename,errcode);
 			if(F->valid()) {
 				return F;
@@ -457,7 +454,7 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 	}
 	
 	
-	_ASSERT(i.bucket>0);
+	_ASSERT(i);
 	
 	pathInodeCache.insert(filename,i);
 	std::vector<permission> pPerm = parentFile->getPathPermissions();
@@ -484,15 +481,15 @@ filePtr fs::inodeToFile(const bucketIndex_t i,const char * filename,my_err_t * e
 	
 	metaPtr node = inoToChunk(i);
 	if(node->as<inode_header_only>()->header.type!=inode_type::NODE) {
-		srvWARNING("Node ",i.fullindex," when loaded is not a node!");
+		srvWARNING("Node ",i," when loaded is not a node!");
 		if(errcode) {
 			*errcode = EE::entity_not_found;
 		}
 		return specialfile_error;
 	}
-	auto myID = node->as<inode>()->myID.fullindex;
+	const auto & myID = node->as<inode>()->myID;
 	if(myID != i) {
-		srvWARNING("Node ",i.fullindex," when loaded reports as ",myID);
+		srvWARNING("Node ",i," when loaded reports as ",myID);
 		if(errcode) {
 			*errcode = EE::entity_not_found;
 		}
@@ -572,7 +569,7 @@ my_err_t fs::mknod(const char * filename, my_mode_t m, my_dev_t dev, const conte
 	} else {
 		srvDEBUG(filename,": ",f->mode());
 	}
-	srvDEBUG("mknod:",filename," mode:",m," type:",m&mode::TYPE," ino:",newFile->as<inode>()->myID.fullindex);
+	srvDEBUG("mknod:",filename," mode:",m," type:",m&mode::TYPE," ino:",newFile->as<inode>()->myID);
 	
 	
 	return EE::ok;
@@ -634,8 +631,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			srvDEBUG("shredding deleted file: ", fileToDelete->getPath());
 			fileToDelete->truncate(0);//Truncating to zero will remove all data
 			auto inoToDel = fileToDelete->setDeletedAndReturnAllUsedInodes();//mark file as deleted and return all metaData blocks that were used.
-			bucketIndex_t i;
-			i.fullindex = fileToDelete->ino();
+			bucketIndex_t i = bucketIndex_t(fileToDelete->ino());
 
 			if(inodeFileCache.erase(i)!=1) {
 				srvERROR("unlink:", filename,":",f->ino(), " failed to erase cached file entry");
@@ -644,8 +640,8 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 			fileToDelete.reset();
 			f.reset();
 			for(auto & li:inoToDel) {
-				srvDEBUG("unlink:: posting ino ",li.fullindex);
-				STOR->metaBuckets->getBucket(li.bucket)->clearHashAndChunk(li.index);
+				srvDEBUG("unlink:: posting ino ",li);
+				STOR->metaBuckets->getBucket(li.bucket())->clearHashAndChunk(li.index());
 				STOR->metaBuckets->accounting->post(li);
 			}
 		}
@@ -740,8 +736,8 @@ my_err_t fs::renamemove(const char * source,const char * dest, const context * c
 
 
 metaPtr fs::inoToChunk(bucketIndex_t ino) {
-	_ASSERT(ino.bucket>0);
-	auto chunk = STOR->metaBuckets->getBucket(ino.bucket)->getChunk(ino.index);
+	_ASSERT(ino);
+	auto chunk = STOR->metaBuckets->getBucket(ino.bucket())->getChunk(ino.index());
 	_ASSERT(chunk!=nullptr);
 	return chunk;
 }
@@ -791,7 +787,7 @@ my_err_t fs::softlink(const char * linktarget,const char * linkname, const conte
 	my_err_t e;
 	auto newFile = mkobject(linkname,e,ctx);
 	if(!newFile) return e;
-	newFile->as<inode>()->mode |= mode::TYPE_LNK;
+	newFile->as<inode>()->mode.setType(mode::TYPE_LNK);
 	e = EE::ok;
 	auto fil = get(linkname,&e);
 	if(e) {
@@ -904,7 +900,7 @@ str fs::getStats() {
 				case inode_type::NODE:
 					++numINodes;
 					{
-						switch(C->as<inode>()->mode & mode::TYPE) {
+						switch(C->as<inode>()->mode.type()) {
 							case mode::TYPE_DIR:++dirs;break;
 							case mode::TYPE_REG:++files;break;
 							case mode::TYPE_LNK:++links;break;
