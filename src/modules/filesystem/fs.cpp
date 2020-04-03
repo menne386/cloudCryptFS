@@ -189,9 +189,9 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		rootChunk->as<inode>()->metaID = metaIndex;
 		
 		metaChunk->as<inode_ctd>()->myID = metaIndex;
-		metaInfo->get<I>("metaBuckets")=1;
-		metaInfo->get<I>("buckets")=1;
-		STOR->prot()->storeEncryptionKeyToBlock(metaInfo->get<P>("encryptionKey"));
+		(*metaInfo)["metaBuckets"]=1;
+		(*metaInfo)["buckets"]=1;
+		STOR->prot()->storeEncryptionKeyToBlock((*metaInfo)["encryptionKey"]);
 		//store newly created metaData in metaChunk
 		auto metaString = metaInfo->serialize(0);
 		
@@ -227,7 +227,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	srvMESSAGE("loading key from metadata");
 	//Load meta info from root node: (including key)
-	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock(metaInfo->get<P>("encryptionKey"))==true);
+	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock((*metaInfo)["encryptionKey"])==true);
 	
 	//Make sure the zeroHash has a place in a bucket.
 	STOR->buckets->getBucket(rootIndex.bucket())->putHashAndChunk(rootIndex.index(),_zeroHash,zeroChunk);

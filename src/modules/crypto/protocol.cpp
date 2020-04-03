@@ -38,9 +38,9 @@ class protocol : public protocolInterface {
 			keySize = crypto_aead_xchacha20poly1305_ietf_KEYBYTES;
 			tagSize = 16U;//@todo: does libsodium have a definition of this?
 			IVSize = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
-			_filenamepublic = loadKey(config->get<P>("filenamepublic"));
+			_filenamepublic = loadKey((*config)["filenamepublic"]);
 			if(MV>=1) {
-				_passwordpublic = loadKey(config->get<P>("passwordpublic"));
+				_passwordpublic = loadKey((*config)["passwordpublic"]);
 			}
 		} else {
 			_UNDEFINED();
@@ -51,14 +51,14 @@ class protocol : public protocolInterface {
 		if(V==1) {
 			//Set options in config
 			_filenamepublic = newRandomKey();
-			storeKey(_filenamepublic,config->get<P>("filenamepublic"));
+			storeKey(_filenamepublic,(*config)["filenamepublic"]);
 			
 			if(MV>=1) {
 				//From 1.1 forward we need a password public
 				_passwordpublic = newRandomKey();
-				storeKey(_passwordpublic,config->get<P>("passwordpublic"));
-				config->get<I>("opslimit") = crypto_pwhash_argon2id_OPSLIMIT_MODERATE;
-				config->get<I>("memlimit") = crypto_pwhash_argon2id_MEMLIMIT_MODERATE;
+				storeKey(_passwordpublic,(*config)["passwordpublic"]);
+				(*config)["opslimit"] = crypto_pwhash_argon2id_OPSLIMIT_MODERATE;
+				(*config)["memlimit"] = crypto_pwhash_argon2id_MEMLIMIT_MODERATE;
 			}
 		} else {
 			_UNDEFINED();
@@ -100,7 +100,8 @@ class protocol : public protocolInterface {
 							_STRTOBYTESIZEOUT(_realKey),
 	                       _STRTOCHARPSIZE(input),
 	                       salt.data(),
-	                       config->get<I>("opslimit"), config->get<I>("memlimit"),
+	                       (*config)["opslimit"], (*config)["memlimit"],
+										
 	                       crypto_pwhash_argon2id_ALG_ARGON2ID13
 						)==0);
 						_protokey = make_shared<crypto::key>(_realKey);
@@ -113,7 +114,7 @@ class protocol : public protocolInterface {
 							_STRTOBYTESIZEOUT(_realKey),
 	                       _STRTOCHARPSIZE(input),
 	                       salt.data(),
-	                       config->get<I>("opslimit"), config->get<I>("memlimit"),
+	                       (*config)["opslimit"], (*config)["memlimit"],
 	                       crypto_pwhash_argon2id_ALG_ARGON2ID13
 						)==0);
 						_filenamesecret = make_shared<crypto::key>(_realKey);
@@ -139,7 +140,7 @@ class protocol : public protocolInterface {
 	}
 	
 	shared_ptr<key> loadKey(script::JSONPtr configNode) {
-		str input=configNode->get<S>("key");
+		str input=(*configNode)["key"];
 		secbyteblock out;
 		out.resize(input.size());
 		size_t outlen=0;
@@ -262,7 +263,7 @@ class protocol : public protocolInterface {
 #define _RETURNPROTOCOL(MAJOR,MINOR,ALT) if(major==MAJOR && minor == MINOR && alt == ALT) { return make_unique<protocol<MAJOR,MINOR,ALT>>(config); }
  
 unique_ptr<protocolInterface> protocolInterface::get(script::JSONPtr config) {
-	str version = config->get<S>("version");
+	str version = (*config)["version"];
 	bool alt = false;
 	if(version.empty())	throw std::logic_error("bad protocol version nr");
 	if(version.back()=='b') {alt = true; version.pop_back();}
@@ -287,7 +288,7 @@ script::JSONPtr protocolInterface::newConfig(str version) {
 	} else if(version=="latest_b") {
 		version = "1.1b";
 	}
-	ret->get<S>("version") = version;
+	(*ret)["version"] = version;
 	{
 		auto prot =  protocolInterface::get(ret);
 		prot->buildNewConfig();

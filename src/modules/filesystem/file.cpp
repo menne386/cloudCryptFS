@@ -318,7 +318,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	_ASSERT(nodeMeta->as<inode>()->myID);
 	
 	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID, " mode:",nodeMeta->as<inode>()->mode.load());
-	directory->get<I>(name) = (uint64_t)nodeMeta->as<inode>()->myID;
+	(*directory)[name] = (uint64_t)nodeMeta->as<inode>()->myID;
 	if(!writeDirectoryContent(directory)) {
 		return EE::io_error;
 	}
