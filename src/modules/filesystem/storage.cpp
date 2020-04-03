@@ -165,10 +165,11 @@ shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
 	return getBucket(index.bucket())->getHash(index.index());
 }
 
-void filesystem::bucketInfo::loadBuckets(script::complextypePtr metaInfo,const str & name) {
+void filesystem::bucketInfo::loadBuckets(script::JSONPtr metaInfo,const str & name) {
+	using namespace script::SLT;
 	auto l = metaInfo->getSize(name);
 	STOR->srvMESSAGE("loading ", l," ", name);
-	auto* ptr = &metaInfo->getI(name, 0, l);
+	auto* ptr = &metaInfo->get<I>(name, 0, l);
 	for (uint64_t a = 0; a < l; ++a) {
 		loadHashesFromBucket(ptr[a]);
 	}

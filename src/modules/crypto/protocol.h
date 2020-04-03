@@ -7,7 +7,7 @@
 #include "types.h"
 #include "key.h"
 
-#include "modules/script/script_complex.h"
+#include "modules/script/JSON.h"
 
 
 namespace crypto{
@@ -19,19 +19,19 @@ namespace crypto{
 		
 		protected:
 		
-		std::shared_ptr<script::ComplexType> config;
+		script::JSONPtr config;
 		size_t keySize=0,IVSize=0,tagSize=0;
 		std::shared_ptr<key> _key,_protokey;
 		
 		
 		public:
 		
-		protocolInterface(size_t iversion,size_t iminor,bool iIsAlt,std::shared_ptr<script::ComplexType> iconfig) : majorVer(iversion),minorVer(iminor),isAlt(iIsAlt), config(iconfig) {}
+		protocolInterface(size_t iversion,size_t iminor,bool iIsAlt,script::JSONPtr iconfig) : majorVer(iversion),minorVer(iminor),isAlt(iIsAlt), config(iconfig) {}
 		virtual ~protocolInterface() {}
 		
 		/* Get the protocol defined by a configuration set: */
-		static unique_ptr<protocolInterface> get(std::shared_ptr<script::ComplexType> config);
-		static std::shared_ptr<script::ComplexType> newConfig(str version);
+		static unique_ptr<protocolInterface> get(script::JSONPtr config);
+		static script::JSONPtr newConfig(str version);
 
 		str getVersion();
 		//Return encryption key sizes and such:
@@ -55,9 +55,9 @@ namespace crypto{
 		shared_ptr<key> getEncryptionKey() { return _key; }
 		
 		/* Store the current encryption key to a configuration string */
-		virtual bool storeEncryptionKeyToBlock(script::complextypePtr out) = 0;
+		virtual bool storeEncryptionKeyToBlock(script::JSONPtr out) = 0;
 		/* Load the encryption key from a config string */
-		virtual bool loadEncryptionKeyFromBlock(script::complextypePtr in) = 0;
+		virtual bool loadEncryptionKeyFromBlock(script::JSONPtr in) = 0;
 		
 		/* Get a filename to a normal bucket */
 		virtual str getBucketFileName(int64_t id) = 0;

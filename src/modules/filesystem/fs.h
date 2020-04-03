@@ -9,7 +9,7 @@
 #include <deque>
 
 #include "modules/services/serviceHandler.h"
-#include "modules/script/script_complex.h"
+#include "modules/script/JSON.h"
 #include "modules/crypto/key.h"
 #include "modules/crypto/protocol.h"
 #include "modules/crypto/sha256.h"

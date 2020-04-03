@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 #ifndef FILESYSTEM_HASH_H
 #define FILESYSTEM_HASH_H
-#include "modules/script/script_complex.h"
+#include "modules/script/JSON.h"
 #include "modules/util/atomic_shared_ptr.h"
 #include "modules/crypto/sha256.h"
 #include "types.h"

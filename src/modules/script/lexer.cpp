@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <map>
 #include "modules/util/str.h"
 using namespace script;
 
@@ -14,11 +15,11 @@ const char * g_TokenTypeString[] = {
 	"unknown", "EOF", ";", "{", "}", "(", ")", "[", "]",
 	//Commands:
 	"include", "function", "return", "if", "elseif", "else", "catchevent", "_foreach", "_while", "as", "index", "resourcedef", "timerdef", "eventdef", "warning", "for","extractor","inline_event","_break","typename",
-	"defined",
+	"defined","expect",
 	//Primary:
 	"identifier", "number", "string", "variabletype",
 	//Other keywords:
-	"class","extends", "seperator", "json_assign", "assign","deref","construct","private","public","final",
+	"class","extends", "seperator", "json_assign", "assign","deref","construct","private","public","final","null","template","operator","_brq",
 	"__attribute__",
 	//Operators:
 	"op_incr", "op_decr",
@@ -26,28 +27,148 @@ const char * g_TokenTypeString[] = {
 	"cop_add", "cop_sub", "cop_mul", "cop_div", "cop_mod", "cop_and", "cop_or", "cop_xor",
 	"lop_l", "lop_g", "lop_le", "lop_ge", "lop_ne", "lop_e",
 	"lop_and", "lop_or", "lop_not",
-	"xml_dtd","xml_cdatal","xml_cdatar","comment"
+	/*"xml_dtd","xml_cdatal","xml_cdatar",*/"comment"
 
 };
+
 };
+
+
 
 Token::Token(const str & c, TokenType t, size_t o) : content(c), type(t), offset(o), comment(""){
-	content.shrink_to_fit();
 }
 
 
-#define singlecharop(OP,TT) if(ThisChar==OP) { AddToken(str(1,OP),TT,offset-2);  continue;}
-#define doublecharop(OP1,OP2,TT) if(ThisChar == OP1 && LastChar==OP2) { LastChar = NextC(); AddToken(str(1,OP1)+str(1,OP2),TT,offset-3); continue;}
-#define wordtoken(OP,TT) if(isl == OP) { AddToken(OP,TT,offset-(strlen(OP)+1),true); continue;}
+namespace{
+	static const std::map<const str,TokenType> _wordToTokenType = {
+		{"#uctexture", TokenType::resourcedef},
+		{"#texture", TokenType::resourcedef},
+		{"#sound", TokenType::resourcedef},
+		{"#htmlfile", TokenType::resourcedef},
+		{"#htmlelement", TokenType::resourcedef},
+		{"#model", TokenType::resourcedef},
+		{"#modelanim", TokenType::resourcedef},
+		{"#warning", TokenType::warning},
+		{"#event", TokenType::event},
+		{"#timer", TokenType::timer},
+		{"#include", TokenType::include},
+		
+		{"for", TokenType::_for},
+		{"foreach", TokenType::_foreach},
+		{"as", TokenType::as},
+		{"return", TokenType::_return},
+		{"index", TokenType::index},
+		{"while", TokenType::_while},
+		{"catchevent", TokenType::catchevent},
+		{"catchallevents", TokenType::catchevent},
+		{"operator", TokenType::_operator},
+		{"function", TokenType::function},
+		{"if", TokenType::_if},
+		{"elseif", TokenType::_elseif},
+		{"else", TokenType::_else},
+		{"class", TokenType::_class},
+		{"template", TokenType::_template},
+		{"extends", TokenType::extends},
+		{"_event", TokenType::inline_event},
+		{"break", TokenType::_break},
+		{"typename", TokenType::_typen},
+		{"deref", TokenType::deref},
+		{"construct", TokenType::construct},
+		{"private:", TokenType::_private},
+		{"null", TokenType::_null},
+		{"public:", TokenType::_public},
+		{"_brq", TokenType::_brq},
+		{"final", TokenType::_final},
+		{"__attribute__", TokenType::_attrib},
+		{"defined", TokenType::_defined},
+		{"expect", TokenType::expect},
+		//Datatypes:
+		{"playerglobal", TokenType::defvar},
+		{"moveglobal", TokenType::defvar},
+		{"global", TokenType::defvar},
+		{"string", TokenType::defvar},
+		{"resource", TokenType::defvar},
+		{"int", TokenType::defvar},
+		{"float", TokenType::defvar},
+		{"vec4", TokenType::defvar},
+		{"vec3", TokenType::defvar},
+		{"var", TokenType::defvar},
+		{"object", TokenType::defvar},
+		{"ref", TokenType::defvar},
+		{"__ptr__", TokenType::defvar},
+		{"auto", TokenType::defvar},
+	};	
+	static const std::map<const str,TokenType> _operators = {
+		{"->",TokenType::extractor},
+		//Logical ops
+		{"<=", TokenType::lop_le},
+		{">=", TokenType::lop_ge},
+		{"!=", TokenType::lop_ne},
+		{"==", TokenType::lop_e},
+		{"&&", TokenType::lop_and},
+		{"||", TokenType::lop_or},
+		
+		//Increment, decrement
+		{"++", TokenType::op_incr},
+		{"--", TokenType::op_decr},
+		//Arithmetic compound ops:
+		{"+=", TokenType::cop_add},
+		{"-=", TokenType::cop_sub},
+		{"/=", TokenType::cop_div},
+		{"*=", TokenType::cop_mul},
+		{"%=", TokenType::cop_mod},
+		{"&=", TokenType::cop_and},
+		{"|=", TokenType::cop_or},
+		{"^=", TokenType::cop_xor},
+		
+		//All Single char operators.
+		{",", TokenType::seperator},
+		{"=", TokenType::assign},
+		{":", TokenType::jsonassign},
+		{"{", TokenType::compound_l},
+		{"}", TokenType::compound_r},
+		{"(", TokenType::par_l},
+		{")", TokenType::par_r},
+		{"[", TokenType::subscr_l},
+		{"]", TokenType::subscr_r},
+		//Logic:
+		{"<", TokenType::lop_l},
+		{">", TokenType::lop_g},
+		{"!", TokenType::lop_not},
+		
+		//Arithmetic ops:
+		{"+", TokenType::op_add},
+		{"-", TokenType::op_sub},
+		{"/", TokenType::op_div},
+		{"*", TokenType::op_mul},
+		{"%", TokenType::op_mod},
+		{"&", TokenType::op_and},
+		{"|", TokenType::op_or},
+		{"^", TokenType::op_xor},
+		//end of statement
+		{";", TokenType::eos},
+	};	
+};
+
+//#define singlecharop(OP,TT) if(ThisChar==OP) { AddToken(str(1,OP),TT,offset-2);  continue;}
+//#define doublecharop(OP1,OP2,TT) if(ThisChar == OP1 && LastChar==OP2) { LastChar = NextC(); AddToken(str(1,OP1)+str(1,OP2),TT,offset-3); continue;}
+//#define wordtoken(OP,TT) if(isl == OP) { AddToken(OP,TT,offset-(strlen(OP)+1),true); continue;}
 
 Lexer::Lexer(const str & c,bool tokenizeComment) {
-	//CLOG("Lex:",c);
+	size_t offset = 0;
 	//Constuctor
+	auto NextC = [&c,&offset]() -> int{
+		if (offset >= c.size()) return EOF;
+		int C = c[offset];
+		offset++;
+		return C;
+	};
+
 	//Load entire textfile into mem
-	int OldChar = ' ';
+	//int OldChar = ' ';
 	int LastChar = ' ';
 	int ThisChar = ' ';
-	content = str(c.rbegin(), c.rend());
+	//content = str(c.rbegin(), c.rend());
 	while (1) {
 		// Skip any whitespace.
 		while (isspace(LastChar)) {
@@ -66,7 +187,7 @@ Lexer::Lexer(const str & c,bool tokenizeComment) {
 					switch(LastChar) {
 						//@note: should also do this back in quotestring
 						case 'n': st+= "\n"; break;
-						case '\\': st+= "\\"; break;
+						case '\\': st+= "\\\\"; /*CLOG("ST:",st);*/break;
 						case 't': st+= "\t"; break;
 						case 'r': st+= "\r"; break;
 						case 'b': st+= "\b"; break;
@@ -86,6 +207,7 @@ Lexer::Lexer(const str & c,bool tokenizeComment) {
 
 			LastChar = NextC();
 			AddToken(st, TokenType::string, offset-(st.length()+3));
+			//CLOG("Parsed full string:",st);
 			continue;
 		}
 
@@ -113,55 +235,12 @@ Lexer::Lexer(const str & c,bool tokenizeComment) {
 					}
 				}
 				const str isl = strtolower(is);	
-				wordtoken("#uctexture", TokenType::resourcedef);
-				wordtoken("#texture", TokenType::resourcedef);
-				wordtoken("#sound", TokenType::resourcedef);
-				wordtoken("#htmlfile", TokenType::resourcedef);
-				wordtoken("#htmlelement", TokenType::resourcedef);
-				wordtoken("#model", TokenType::resourcedef);
-				wordtoken("#modelanim", TokenType::resourcedef);
-				wordtoken("#warning", TokenType::warning);
-				wordtoken("#event", TokenType::event);
-				wordtoken("#timer", TokenType::timer);
-				wordtoken("#include", TokenType::include);
-				
-				wordtoken("for", TokenType::_for);
-				wordtoken("foreach", TokenType::_foreach);
-				wordtoken("as", TokenType::as);
-				wordtoken("return", TokenType::_return);
-				wordtoken("index", TokenType::index);
-				wordtoken("while", TokenType::_while);
-				wordtoken("catchevent", TokenType::catchevent);
-				wordtoken("catchallevents", TokenType::catchevent);
-				wordtoken("function", TokenType::function);
-				wordtoken("if", TokenType::_if);
-				wordtoken("elseif", TokenType::_elseif);
-				wordtoken("else", TokenType::_else);
-				wordtoken("class", TokenType::_class);
-				wordtoken("extends", TokenType::extends);
-				wordtoken("_event", TokenType::inline_event);
-				wordtoken("break", TokenType::_break);
-				wordtoken("typename", TokenType::_typen);
-				wordtoken("deref", TokenType::deref);
-				wordtoken("construct", TokenType::construct);
-				wordtoken("private:", TokenType::_private);
-				wordtoken("public:", TokenType::_public);
-				wordtoken("final", TokenType::_final);
-				wordtoken("__attribute__", TokenType::_attrib);
-				wordtoken("defined", TokenType::_defined);
-				//Datatypes:
-				wordtoken("playerglobal", TokenType::defvar);
-				wordtoken("moveglobal", TokenType::defvar);
-				wordtoken("global", TokenType::defvar);
-				wordtoken("string", TokenType::defvar);
-				wordtoken("resource", TokenType::defvar);
-				wordtoken("int", TokenType::defvar);
-				wordtoken("float", TokenType::defvar);
-				wordtoken("var", TokenType::defvar);
-				wordtoken("object", TokenType::defvar);
-				wordtoken("ref", TokenType::defvar);
-				wordtoken("auto", TokenType::defvar);
-				
+
+				auto itr = _wordToTokenType.find(isl);
+				if(itr!=_wordToTokenType.end()) {
+					AddToken(itr->first,itr->second,offset-(itr->first.length()+1),true);
+					continue;
+				}
 			}
 			//All other tokens are identifiers:
 			AddToken(is, TokenType::identifier, offset-(is.length()+1),true);
@@ -186,7 +265,7 @@ Lexer::Lexer(const str & c,bool tokenizeComment) {
 		}
 
 		// Otherwise, just return the character as its ascii value.
-		OldChar = ThisChar;
+		//OldChar = ThisChar;
 		ThisChar = LastChar;
 		LastChar = NextC();
 
@@ -222,111 +301,27 @@ Lexer::Lexer(const str & c,bool tokenizeComment) {
 			LastChar = NextC();
 			continue;
 		}
-		if(tokenizeComment) {
-			if (ThisChar == '<' && LastChar == '!' &&  peek(0) == '-'&&  peek(1) == '-') {//<!--
-				str cmt = "<!";
-				do {
-					OldChar = ThisChar;
-					ThisChar = LastChar;
-					LastChar = NextC();
-					cmt.push_back(LastChar);
-				} while (LastChar != EOF && !(OldChar == '-' && ThisChar == '-' && LastChar == '>'));
-				AddToken(cmt,TokenType::comment,offset - (cmt.length()));
-				LastChar = NextC();				
-				continue;
-			}
-			
-			if (ThisChar=='<' && LastChar == '?' && peek(0) == 'x' && peek(1) == 'm' && peek(2) == 'l' ) {//<?xml blah blah blah ?>
-				str cmt="<?";
-				do {
-					ThisChar = LastChar;
-					LastChar = NextC();
-					cmt.push_back(LastChar);
-				} while (LastChar != EOF && !(ThisChar == '?' && LastChar == '>'));
-				if(tokenizeComment) {
-					AddToken(cmt,TokenType::xml_dtd,offset - (cmt.length()));
-				}
-				LastChar = NextC();
-				continue;
-			}
-			if (ThisChar=='<' && LastChar == '!' && peek(0)=='['&& peek(1)=='C' && peek(2)=='D'&& peek(3)=='A'&& peek(4)=='T'&& peek(5)=='A' &&peek(6)=='[' ) { //<![CDATA[
-				AddToken("<![CDATA[", TokenType::xml_cdatal, offset-2);
-				for(int a= 0;a<7;a++) {
-					LastChar = NextC();
-				}
-				continue;
-			}
-			if (ThisChar=='<' && LastChar == 'h' && peek(0)=='t'&& peek(1)=='m' && peek(2)=='l'&& peek(3)=='>' ) { //<html>
-				AddToken("<html>", TokenType::xml_dtd, offset-2);
-				for(int a= 0;a<4;a++) {
-					LastChar = NextC();
-				}
-				continue;
-			}
-			if (OldChar == ']' && ThisChar==']' && LastChar == '>') { // ]]>
-				AddToken("]]>", TokenType::xml_cdatar, offset-3);
-				LastChar = NextC();
-				continue;
-			}
+
+
+		//Find operator consisting of 2 characters
+		str doublec(1,ThisChar);
+		doublec.push_back(LastChar);
+		auto itr = _operators.find(doublec);
+		if(itr!=_operators.end()) {
+			LastChar = NextC(); 
+			AddToken(itr->first,itr->second,offset-3); 
+			continue;
 		}
+		
+		//Find operators consisting of 1 character:
+		itr = _operators.find(str(1,ThisChar));
+		if(itr!=_operators.end()) {
+			AddToken(itr->first,itr->second,offset-2);  
+			continue;
+		}
+		
 
-		//All Double char operators:
-		doublecharop('-', '>', TokenType::extractor);
-		//Logical ops
-		doublecharop('<', '=', TokenType::lop_le);
-		doublecharop('>', '=', TokenType::lop_ge);
-		doublecharop('!', '=', TokenType::lop_ne);
-		doublecharop('=', '=', TokenType::lop_e);
-		doublecharop('&', '&', TokenType::lop_and);
-		doublecharop('|', '|', TokenType::lop_or);
-
-		//Increment, decrement
-		doublecharop('+', '+', TokenType::op_incr);
-		doublecharop('-', '-', TokenType::op_decr);
-		//Arithmetic compound ops:
-		doublecharop('+', '=', TokenType::cop_add);
-		doublecharop('-', '=', TokenType::cop_sub);
-		doublecharop('/', '=', TokenType::cop_div);
-		doublecharop('*', '=', TokenType::cop_mul);
-		doublecharop('%', '=', TokenType::cop_mod);
-		doublecharop('&', '=', TokenType::cop_and);
-		doublecharop('|', '=', TokenType::cop_or);
-		doublecharop('^', '=', TokenType::cop_xor);
-
-		//All Single char operators.
-		singlecharop(',', TokenType::seperator);
-		singlecharop('=', TokenType::assign);
-		singlecharop(':', TokenType::jsonassign);
-		singlecharop('{', TokenType::compound_l);
-		singlecharop('}', TokenType::compound_r);
-		singlecharop('(', TokenType::par_l);
-		singlecharop(')', TokenType::par_r);
-		singlecharop('[', TokenType::subscr_l);
-		singlecharop(']', TokenType::subscr_r);
-		//Logic:
-		singlecharop('<', TokenType::lop_l);
-		singlecharop('>', TokenType::lop_g);
-		singlecharop('!', TokenType::lop_not);
-
-		//Arithmetic ops:
-		singlecharop('+', TokenType::op_add);
-		singlecharop('-', TokenType::op_sub);
-		singlecharop('/', TokenType::op_div);
-		singlecharop('*', TokenType::op_mul);
-		singlecharop('%', TokenType::op_mod);
-		singlecharop('&', TokenType::op_and);
-		singlecharop('|', TokenType::op_or);
-		singlecharop('^', TokenType::op_xor);
-		//end of statement
-		singlecharop(';', TokenType::eos);
-
-
-
-
-		str st;
-		st = ThisChar;
-
-		AddToken(st, TokenType::unknown, offset-1);
+		AddToken(str(1,ThisChar), TokenType::unknown, offset-1);
 	}
 	reset();
 }
@@ -354,7 +349,7 @@ void Lexer::AddToken(const str & c,TokenType t, size_t o,bool isw) {
 	}
 }
 
-int Lexer::NextC() {
+/*int Lexer::NextC() {
 	if (content.empty()) return EOF;
 	offset++;
 	char C = content.back();
@@ -362,10 +357,10 @@ int Lexer::NextC() {
 	return static_cast<int> (C);
 }
 
-int Lexer::peek(size_t ahead ) {
+int Lexer::peek(unsigned ahead ) {
 	if (content.empty() || ahead >= content.size()) return EOF;
-	size_t idx = content.size()-((size_t)1+ahead);
+	unsigned idx = content.size()-(1+ahead);
 	return static_cast<int> (content[idx]);
-}
+}*/
 
 

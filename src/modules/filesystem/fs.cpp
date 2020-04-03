@@ -34,7 +34,7 @@
 #include "modules/util/files.h"
 
 using namespace filesystem;
-using script::ComplexType;
+using namespace script::SLT;
 
 const int metaDataVersion = 1;
 
@@ -169,7 +169,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	STOR->buckets->hashesIndex.insert(zeroSum,_zeroHash);
 	
-	auto metaInfo = ComplexType::newComplex();
+	auto metaInfo = script::make_json();
 	const bool foundFileSystem = (STOR->metaBuckets->getBucket(1)->getHash(0)!=nullptr);
 	if(mustCreate) {
 		//Create new filesystem
@@ -189,9 +189,9 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		rootChunk->as<inode>()->metaID = metaIndex;
 		
 		metaChunk->as<inode_ctd>()->myID = metaIndex;
-		metaInfo->getI("metaBuckets")=1;
-		metaInfo->getI("buckets")=1;
-		STOR->prot()->storeEncryptionKeyToBlock(metaInfo->getOPtr("encryptionKey"));
+		metaInfo->get<I>("metaBuckets")=1;
+		metaInfo->get<I>("buckets")=1;
+		STOR->prot()->storeEncryptionKeyToBlock(metaInfo->get<P>("encryptionKey"));
 		//store newly created metaData in metaChunk
 		auto metaString = metaInfo->serialize(0);
 		
@@ -227,7 +227,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	srvMESSAGE("loading key from metadata");
 	//Load meta info from root node: (including key)
-	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock(metaInfo->getOPtr("encryptionKey"))==true);
+	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock(metaInfo->get<P>("encryptionKey"))==true);
 	
 	//Make sure the zeroHash has a place in a bucket.
 	STOR->buckets->getBucket(rootIndex.bucket())->putHashAndChunk(rootIndex.index(),_zeroHash,zeroChunk);
@@ -305,7 +305,7 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 	srvMESSAGE("Generating new key...");
 	newProtocol->regenerateEncryptionKey();
 	_ASSERT(newProtocol->getEncryptionKey()!=nullptr);
-	auto key = script::ComplexType::newComplex();
+	auto key = script::make_json();
 	newProtocol->storeEncryptionKeyToBlock(key);
 	root->setMetaProperty("encryptionKey",key);
 	root->storeMetaProperties();

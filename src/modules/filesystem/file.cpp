@@ -34,9 +34,9 @@
 #include <mutex>
 
 using namespace filesystem;
-using script::ComplexType;
+using namespace script::SLT;
 
-file::file(specialFile intype):  extraMeta(ComplexType::newComplex()), metaChunk(chunk::newChunk(0,nullptr)){
+file::file(specialFile intype):  extraMeta(script::make_json()), metaChunk(chunk::newChunk(0,nullptr)){
 	_type = intype;
 	refs.store(0); 
 	isDeleted.store(false);
@@ -46,7 +46,7 @@ file::file(specialFile intype):  extraMeta(ComplexType::newComplex()), metaChunk
 }
 
 file::file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm) : metaChunk(imeta), path(ipath),pathPermissions(ipathPerm),hashList() { 
-	extraMeta = ComplexType::newComplex();
+	extraMeta = script::make_json();
 	loadHashes();
 	refs.store(0); 
 	isDeleted.store(false);
@@ -124,7 +124,7 @@ void file::setMetaProperty(const str & propertyname,const std::set<uint64_t> & i
 	if(!valid())return;
 	lckunique l(_mut); // Need lock to protect extraMeta variable
 	extraMeta->clearProperty(propertyname);
-	auto *arr = &extraMeta->getI(propertyname,0,in.size());
+	auto *arr = &extraMeta->get<I>(propertyname,0,in.size());
 	auto idx = 0;
 	for(auto & i:in) {
 		arr[idx] = i;++idx;
@@ -132,10 +132,10 @@ void file::setMetaProperty(const str & propertyname,const std::set<uint64_t> & i
 }
 
 
-void file::setMetaProperty(const str & propertyname,script::complextypePtr in) {
+void file::setMetaProperty(const str & propertyname,script::JSONPtr in) {
 	if(!valid())return;
 	lckunique l(_mut); // Need lock to protect extraMeta variable
-	extraMeta->setOPtr(propertyname,0,in);
+	extraMeta->set(propertyname,in);
 }
 
 
@@ -305,7 +305,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 		return EE::access_denied;
 	}
 	lckunique l(_mut);
-	auto directory = script::ComplexType::newComplex();
+	auto directory = script::make_json();
 	if(!readDirectoryContent(directory)) {
 		return EE::permission_denied;
 	}
@@ -318,7 +318,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	_ASSERT(nodeMeta->as<inode>()->myID);
 	
 	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID, " mode:",nodeMeta->as<inode>()->mode.load());
-	directory->getI(name) = (uint64_t)nodeMeta->as<inode>()->myID;
+	directory->get<I>(name) = (uint64_t)nodeMeta->as<inode>()->myID;
 	if(!writeDirectoryContent(directory)) {
 		return EE::io_error;
 	}
@@ -335,7 +335,7 @@ my_err_t file::removeNode(const str & name,const context * ctx) {
 		return EE::access_denied;
 	}
 	lckunique l(_mut);
-	auto directory = script::ComplexType::newComplex();
+	auto directory = script::make_json();
 	if(!readDirectoryContent(directory)) {
 		return EE::permission_denied;
 	}
@@ -363,7 +363,7 @@ my_err_t file::hasNode(const str & name,const context * ctx,bucketIndex_t * id) 
 		return EE::access_denied;
 	}
 	
-	auto directory = script::ComplexType::newComplex();
+	auto directory = script::make_json();
 	if(!readDirectoryContent(directory)) {
 		return EE::permission_denied;
 	}
@@ -372,7 +372,7 @@ my_err_t file::hasNode(const str & name,const context * ctx,bucketIndex_t * id) 
 		return EE::entity_not_found;
 	}
 	if(id) {
-		*id = directory->getI(name);
+		*id = directory->get<I>(name);
 	}
 	
 	return EE::ok;
@@ -720,7 +720,7 @@ bool file::isFullDir() {
 	}
 	if(type()!=fileType::DIR) return false;
 
-	auto directory = script::ComplexType::newComplex();
+	auto directory = script::make_json();
 	if(!readDirectoryContent(directory)) {
 		return true;
 	}
@@ -938,7 +938,7 @@ bool file::validate_ownership(const context * ctx,my_mode_t newMode) {
 }
 
 
-bool file::readDirectoryContent(script::complextypePtr out) {
+bool file::readDirectoryContent(script::JSONPtr out) {
 	if(!valid()) {
 		return false;
 	}
@@ -961,7 +961,7 @@ bool file::readDirectoryContent(script::complextypePtr out) {
 	}
 	return true;
 }
-bool file::writeDirectoryContent (script::complextypePtr in) {
+bool file::writeDirectoryContent (script::JSONPtr in) {
 	if(!valid()) {
 		return false;
 	}

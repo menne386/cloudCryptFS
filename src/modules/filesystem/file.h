@@ -7,7 +7,7 @@
 //#include <sys/types.h>
 #include "types.h"
 #include "inode.h"
-#include "modules/script/script_complex.h"
+#include "modules/script/JSON.h"
 #include "modules/util/atomic_shared_ptr_list.h"
 #include <atomic>
 #undef ERROR
@@ -22,7 +22,7 @@ namespace filesystem{
 	
 	typedef std::shared_ptr<file> filePtr;
 	
-	enum class fileType: script::int_t{//Storage for this should be the int_t type of script because the type will be stored in ComplexType
+	enum class fileType: script::int_t{//Storage for this should be the int_t type of script because the type will be stored in script::JSON
 		INVALID = 0,
 		FILE = 1,
 		DIR = 2,
@@ -46,7 +46,7 @@ namespace filesystem{
 	private:
 		//friend class fs;
 		std::atomic_int numHashWrites,numHashReads;
-		std::shared_ptr<script::ComplexType> extraMeta;
+		script::JSONPtr extraMeta;
 		std::shared_ptr<chunk> metaChunk;
 		const str path;
 		const std::vector<permission> pathPermissions;
@@ -72,13 +72,13 @@ namespace filesystem{
 		bool valid() {return (_type!=specialFile::ERROR && isDeleted==false);}
 		std::shared_ptr<chunk> getMetaChunk() {return metaChunk;}
 
-		bool readDirectoryContent(script::complextypePtr out);
-		bool writeDirectoryContent(script::complextypePtr in);
+		bool readDirectoryContent(script::JSONPtr out);
+		bool writeDirectoryContent(script::JSONPtr in);
 		
 		std::vector<bucketIndex_t> setDeletedAndReturnAllUsedInodes();
 		void storeMetaProperties(void);
 		void setMetaProperty(const str & propertyname,const std::set<uint64_t> & in);
-		void setMetaProperty(const str & propertyname,script::complextypePtr in);
+		void setMetaProperty(const str & propertyname,script::JSONPtr in);
 		void setSpecialFile(const specialFile in) {_type = in;}
 		 
 		void addLink(void);

@@ -12,11 +12,11 @@ namespace script {
 		unknown, eof, eos, compound_l, compound_r, par_l, par_r, subscr_l, subscr_r,
 		//Commands: 
 		include, function, _return, _if, _elseif, _else, catchevent, _foreach, _while, as, index, resourcedef, timer, event, warning, _for, extractor,inline_event,_break,_typen,
-		_defined,
+		_defined,expect,
 		//Primary
 		identifier, number, string, defvar,
 		//Other keywords:
-		_class,extends, seperator,jsonassign , assign,deref,construct,_private,_public,_final,
+		_class,extends, seperator,jsonassign , assign,deref,construct,_private,_public,_final,_null,_template,_operator,_brq,
 		_attrib,
 		//Operators:
 		op_incr, op_decr,
@@ -25,7 +25,7 @@ namespace script {
 		lop_l, lop_g, lop_le, lop_ge, lop_ne, lop_e,
 		lop_and, lop_or, lop_not,
 		//XmlStuff
-		xml_dtd,xml_cdatal,xml_cdatar,comment
+		/*xml_dtd,xml_cdatal,xml_cdatar,*/comment
 		
 		
 
@@ -35,7 +35,13 @@ namespace script {
 #endif
 
 	struct Token {
+		Token() = default;
 		Token(const str & c, TokenType t, size_t o);
+		Token(const Token & in)  = default;
+		Token(const Token * in) {
+			*this = *in;
+		}
+		operator const str &() const { return content; }
 		str content;
 		TokenType type;
 		size_t offset = 0;
@@ -49,13 +55,12 @@ namespace script {
 		void reset(void);
 		Lexer(const str & c,bool tokenizeComment = false);
 	private:
-		int peek(size_t ahead = 0);
-		int NextC();
+		//int NextC();
 		void AddToken(const str & c,TokenType t, size_t o,bool isw=false);
 		std::list<Token> list;
 		std::list<Token>::iterator _ct;
-		str content = "";
-		size_t offset = 0;
+		//str content = "";
+		//int offset = 0;
 		str comment = "";
 
 	};

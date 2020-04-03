@@ -17,7 +17,7 @@
 #include <modules/filesystem/fs.h>
 #include <modules/filesystem/storage.h>
 #include <modules/crypto/protocol.h>
-#include <modules/script/script_complex.h>
+#include <modules/script/JSON.h>
 #include <modules/util/files.h>
 #include <modules/util/console.h>
 #include "modules/util/endian.h"
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 	bool mustCreate = conf.create && str(conf.create) == "yes";
 	
 	str cfg = util::getSystemString(STOR->getPath()+"config.json");
-	auto config = script::ComplexType::newComplex();
+	auto config = script::make_json();
 	
 	if(mustCreate) {
 		FS->srvMESSAGE("Generating new startup configuration");
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
 	
 	
 	if(conf.migrate) {
-		auto newConfig = script::ComplexType::newComplex();
+		auto newConfig = script::make_json();
 		newConfig = crypto::protocolInterface::newConfig(conf.migrate);
 		auto newProtocol = crypto::protocolInterface::get(newConfig);
 		{

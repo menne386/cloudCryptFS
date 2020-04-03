@@ -43,7 +43,7 @@ namespace filesystem {
 		shared_ptr<chunk> getChunk(const bucketIndex_t& index);
 		shared_ptr<hash> getHash(const bucketIndex_t& index);
 
-		void loadBuckets(script::complextypePtr metaInfo,const str & name);
+		void loadBuckets(script::JSONPtr metaInfo,const str & name);
 	};
 
 

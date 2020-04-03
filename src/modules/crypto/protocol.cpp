@@ -21,6 +21,8 @@
  
 using namespace crypto;
 
+using namespace script::SLT;
+
 #define _UNDEFINED() throw std::logic_error(std::string("Protocol undefined for function ")+std::string( __func__) );
 str protocolInterface::getVersion() { return BUILDSTRING(majorVer,".",minorVer,isAlt?"b":""); }
 
@@ -30,15 +32,15 @@ class protocol : public protocolInterface {
 	private:
 	shared_ptr<key> _filenamepublic,_filenamesecret,_passwordpublic;	
 	public:
-	protocol(std::shared_ptr<script::ComplexType> config): protocolInterface(V,MV,VA,config) {
+	protocol(script::JSONPtr config): protocolInterface(V,MV,VA,config) {
 		if(V==1) {
 			//Protocol version 1 uses crypto_aead_xchacha20poly1305_ietf construction
 			keySize = crypto_aead_xchacha20poly1305_ietf_KEYBYTES;
 			tagSize = 16U;//@todo: does libsodium have a definition of this?
 			IVSize = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
-			_filenamepublic = loadKey(config->getOPtr("filenamepublic"));
+			_filenamepublic = loadKey(config->get<P>("filenamepublic"));
 			if(MV>=1) {
-				_passwordpublic = loadKey(config->getOPtr("passwordpublic"));
+				_passwordpublic = loadKey(config->get<P>("passwordpublic"));
 			}
 		} else {
 			_UNDEFINED();
@@ -49,14 +51,14 @@ class protocol : public protocolInterface {
 		if(V==1) {
 			//Set options in config
 			_filenamepublic = newRandomKey();
-			storeKey(_filenamepublic,config->getOPtr("filenamepublic"));
+			storeKey(_filenamepublic,config->get<P>("filenamepublic"));
 			
 			if(MV>=1) {
 				//From 1.1 forward we need a password public
 				_passwordpublic = newRandomKey();
-				storeKey(_passwordpublic,config->getOPtr("passwordpublic"));
-				config->getI("opslimit") = crypto_pwhash_argon2id_OPSLIMIT_MODERATE;
-				config->getI("memlimit") = crypto_pwhash_argon2id_MEMLIMIT_MODERATE;
+				storeKey(_passwordpublic,config->get<P>("passwordpublic"));
+				config->get<I>("opslimit") = crypto_pwhash_argon2id_OPSLIMIT_MODERATE;
+				config->get<I>("memlimit") = crypto_pwhash_argon2id_MEMLIMIT_MODERATE;
 			}
 		} else {
 			_UNDEFINED();
@@ -98,7 +100,7 @@ class protocol : public protocolInterface {
 							_STRTOBYTESIZEOUT(_realKey),
 	                       _STRTOCHARPSIZE(input),
 	                       salt.data(),
-	                       config->getI("opslimit"), config->getI("memlimit"),
+	                       config->get<I>("opslimit"), config->get<I>("memlimit"),
 	                       crypto_pwhash_argon2id_ALG_ARGON2ID13
 						)==0);
 						_protokey = make_shared<crypto::key>(_realKey);
@@ -111,7 +113,7 @@ class protocol : public protocolInterface {
 							_STRTOBYTESIZEOUT(_realKey),
 	                       _STRTOCHARPSIZE(input),
 	                       salt.data(),
-	                       config->getI("opslimit"), config->getI("memlimit"),
+	                       config->get<I>("opslimit"), config->get<I>("memlimit"),
 	                       crypto_pwhash_argon2id_ALG_ARGON2ID13
 						)==0);
 						_filenamesecret = make_shared<crypto::key>(_realKey);
@@ -131,13 +133,13 @@ class protocol : public protocolInterface {
 	}
 	
 	/* Store a Key to a JSON object*/
-	bool storeKey(shared_ptr<key> k,std::shared_ptr<script::ComplexType> configNode ) {
-		k->toBase64String(configNode->getS("key"));
+	bool storeKey(shared_ptr<key> k,script::JSONPtr configNode ) {
+		k->toBase64String(configNode->get<S>("key"));
 		return true;
 	}
 	
-	shared_ptr<key> loadKey(std::shared_ptr<script::ComplexType> configNode) {
-		str input=configNode->getS("key");
+	shared_ptr<key> loadKey(script::JSONPtr configNode) {
+		str input=configNode->get<S>("key");
 		secbyteblock out;
 		out.resize(input.size());
 		size_t outlen=0;
@@ -154,13 +156,13 @@ class protocol : public protocolInterface {
 	}
 	
 	/* Store the current encryption key to a configuration string */
-	bool storeEncryptionKeyToBlock(script::complextypePtr out) {
+	bool storeEncryptionKeyToBlock(script::JSONPtr out) {
 		storeKey(_key,out);
 		return true;
 	}
 	
 	/* Load the encryption key from a config string */
-	bool loadEncryptionKeyFromBlock(script::complextypePtr in) {
+	bool loadEncryptionKeyFromBlock(script::JSONPtr in) {
 		_key = loadKey(in);
 		return _key!=nullptr;
 	}
@@ -259,8 +261,8 @@ class protocol : public protocolInterface {
 
 #define _RETURNPROTOCOL(MAJOR,MINOR,ALT) if(major==MAJOR && minor == MINOR && alt == ALT) { return make_unique<protocol<MAJOR,MINOR,ALT>>(config); }
  
-unique_ptr<protocolInterface> protocolInterface::get(std::shared_ptr<script::ComplexType> config) {
-	str version = config->getS("version");
+unique_ptr<protocolInterface> protocolInterface::get(script::JSONPtr config) {
+	str version = config->get<S>("version");
 	bool alt = false;
 	if(version.empty())	throw std::logic_error("bad protocol version nr");
 	if(version.back()=='b') {alt = true; version.pop_back();}
@@ -278,14 +280,14 @@ unique_ptr<protocolInterface> protocolInterface::get(std::shared_ptr<script::Com
 	throw std::logic_error("protocol version could not be instantiated");
 }
 
-std::shared_ptr<script::ComplexType> protocolInterface::newConfig(str version) {
-	auto ret = script::ComplexType::newComplex();
+script::JSONPtr protocolInterface::newConfig(str version) {
+	auto ret = script::make_json();
 	if(version=="latest") {
 		version = "1.1";
 	} else if(version=="latest_b") {
 		version = "1.1b";
 	}
-	ret->getS("version") = version;
+	ret->get<S>("version") = version;
 	{
 		auto prot =  protocolInterface::get(ret);
 		prot->buildNewConfig();

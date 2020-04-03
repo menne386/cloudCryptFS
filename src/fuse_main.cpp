@@ -175,12 +175,12 @@ static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 	if(D->valid() && D->type()==fileType::DIR) {
 		filler(buf, ".", NULL, 0);
 		filler(buf, "..", NULL, 0);
-		auto meta = script::ComplexType::newComplex();
+		auto meta = script::make_json();
 		if(!D->readDirectoryContent(meta)) {
 			return -ENOENT;
 		}
 		for(auto & it: *meta) {
-			if (it.second.getI(0,1) > 0) {
+			if (it.second.get<script::SLT::I>(0,1) > 0) {
 				filler(buf, it.first.c_str(), nullptr, 0);
 			}
 		}
