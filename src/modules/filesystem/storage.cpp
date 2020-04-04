@@ -77,12 +77,7 @@ void bucketInfo::createNewBucket(uint64_t id) {
 	FS->srvDEBUG("Adding ", meta ? "meta" : "", " bucket ", id);
 	//Nothing to see/do here
 }
-void bucketInfo::loadHashesFromBucket(uint64_t id) {
-	lckguard l(_mut);
-	if (initList.find(id) != initList.end()) {
-		return;
-	}
-	initList.insert(id);
+void bucketInfo::loadHashesFromBucket(uint64_t id, std::vector<bucketIndex_t>& postList, uint64_t& numLoaded) {
 	try {
 
 		//srvMESSAGE("loading hashes from ",fn);
@@ -164,12 +159,16 @@ shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
 
 void filesystem::bucketInfo::loadBuckets(script::JSONPtr metaInfo,const str & name) {
 	auto start = std::chrono::high_resolution_clock::now();
+	uint64_t numLoaded = 0;
+	std::set<uint64_t> initList;
+	std::vector<bucketIndex_t> postList;
 	using namespace script::SLT;
 	auto l = metaInfo->getSize(name);
 	STOR->srvMESSAGE("loading ", l," ", name);
 	auto* ptr = &metaInfo->get<I>(name, 0, l);
 	for (uint64_t a = 0; a < l; ++a) {
-		loadHashesFromBucket(ptr[a]);
+		initList.insert(ptr[a]);
+		loadHashesFromBucket(ptr[a],postList,numLoaded);
 	}
 	accounting = make_unique<bucketaccounting>(initList, this);
 	while (postList.empty() == false) {

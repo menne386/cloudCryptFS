@@ -21,23 +21,20 @@ namespace filesystem {
 	class bucketaccounting;
 
 	class bucketInfo {
+	private:
+		void loadHashesFromBucket(uint64_t id, std::vector<bucketIndex_t>& postList, uint64_t &numLoaded);
+		bool meta = false;
+		locktype _mut;
+		crypto::protocolInterface* protocol;
 	public:
 		bucketInfo(crypto::protocolInterface* p, bool isMeta);
-		bool meta = false;
-		crypto::protocolInterface* protocol;
-		locktype _mut;
-		uint64_t numLoaded = 0;
-
-
-		std::set<uint64_t> initList;
-		std::vector<bucketIndex_t> postList;
+		
 		unique_ptr<bucketaccounting> accounting;
 		util::protected_unordered_map<uint64_t, shared_ptr<bucket>> loaded;
 		util::protected_unordered_map<const crypto::sha256sum, std::shared_ptr<hash>> hashesIndex;
 
 		void clear(void);
 		void createNewBucket(uint64_t id);
-		void loadHashesFromBucket(uint64_t id);
 		void removeBucket(uint64_t id);
 		bucket* getBucket(uint64_t id);
 		shared_ptr<chunk> getChunk(const bucketIndex_t& index);

@@ -210,15 +210,15 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		}
 	}
 	
-	//Load existing filesystem
-	STOR->metaBuckets->loadHashesFromBucket(1);
+	//Load existing filesystem:
+
 	//instance root node
 	auto rootChunk = inoToChunk(rootIndex);
-	auto metaChunk = inoToChunk(metaIndex);
 
-	str metaString = loadMetaDataFromINode(rootChunk->as<inode>());
-	_ASSERT(metaString.size()>0);
+	//Load the metaData string from the root Chunk:
 	try{
+		str metaString = loadMetaDataFromINode(rootChunk->as<inode>());
+		_ASSERT(metaString.size() > 0);
 		metaInfo->unserialize(metaString);
 	} catch(std::exception & e) {
 		srvERROR("Error unserializing metaInfo: ",e.what());
@@ -228,10 +228,12 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	srvMESSAGE("loading key from metadata");
 	//Load meta info from root node: (including key)
 	_ASSERT(STOR->prot()->loadEncryptionKeyFromBlock((*metaInfo)["encryptionKey"])==true);
-	
+	_ASSERT(STOR->prot()->getEncryptionKey() != nullptr);
+
 	//Make sure the zeroHash has a place in a bucket.
 	STOR->buckets->getBucket(rootIndex.bucket())->putHashAndChunk(rootIndex.index(),_zeroHash,zeroChunk);
 	
+	//Load metaBuckets & buckets:
 	STOR->metaBuckets->loadBuckets(metaInfo, "metaBuckets");
 	STOR->buckets->loadBuckets(metaInfo, "buckets");
 
@@ -239,7 +241,6 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	root = make_shared<file>(rootChunk,"/",pPerm);
 	pathInodeCache.insert("/",rootIndex);
 	inodeFileCache.insert(rootIndex,root);
-	//inodeFileCache[rootIndex] = root;
 
 	
 	specialfile_error = std::make_shared<file>(chunk::newChunk(0,nullptr),"",pPerm);
@@ -248,7 +249,6 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	
 	Fully_up_and_running = true;
 	up_and_running = true;
-	_ASSERT(STOR->prot()->getEncryptionKey()!=nullptr);
 	srvMESSAGE("up and running");	
 	srvMESSAGE(FS->zeroHash()->getRefCnt()," references to zeroChunk.");
 	return true;
