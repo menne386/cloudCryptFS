@@ -32,9 +32,18 @@ bool util::fileExists(const str & name,size_t * size) {
 	return false;
 }
 
+template<class T>
+void openfile(T& F, const str& fname, int mod) {
+#ifdef _WIN32
+	F.open(fname.c_str(), mod, _SH_DENYRW);
+#else
+	F.open(fname.c_str(), mod);
+#endif
+}
+
 str util::getSystemString(const str & fname,uint64_t offset) {
 	std::ifstream F;
-	F.open(fname.c_str(),std::ios::binary|std::ios::in);
+	openfile(F,fname,std::ios::binary|std::ios::in);
 	if(F.is_open()) {
 		if(offset) {
 			F.seekg(offset);
@@ -46,7 +55,7 @@ str util::getSystemString(const str & fname,uint64_t offset) {
 
 void util::putSystemString(const str & fname, const str & content) {
 	std::ofstream F;
-	F.open(fname.c_str(),std::ios::binary|std::ios::out);
+	openfile(F, fname, std::ios::binary|std::ios::out);
 	if(F.is_open()) {
 		F.write(content.data(),content.size());
 	} else {
@@ -55,7 +64,7 @@ void util::putSystemString(const str & fname, const str & content) {
 }
 void util::replaceIntoSystemString(const str & path,const str & content,uint64_t offset) {
 	std::fstream F;
-	F.open(path.c_str(),std::ios::binary|std::ios::out|std::ios::in);
+	openfile(F, path, std::ios::binary|std::ios::out|std::ios::in);
 	if(F.is_open()) {
 		if(offset) {
 			F.seekp(offset);
