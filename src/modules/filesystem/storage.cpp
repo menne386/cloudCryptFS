@@ -97,11 +97,8 @@ void bucketInfo::loadHashesFromBucket(uint64_t id) {
 
 				//++numInner;
 				if (meta == false) {
-					const auto hshStr = hsh->getHashPrimitive();
-					const auto hshIdx = hsh->getBucketIndex();
-					hashesIndex.insert(hshStr, hsh);
-					//CLOG("loading hash: ",hshIdx.fullindex," for ",meta?"meta":"data"," : ",reinterpret_cast<uint64_t>(hsh.get())," this:",reinterpret_cast<uint64_t>(this)," str:",hshStr.toLongStr());
-					_ASSERT(b == hshIdx);
+					hashesIndex.insert(hsh->getHashPrimitive(), hsh);
+					_ASSERT(b == hsh->getBucketIndex());
 					_ASSERT(hsh->getRefCnt() > 0);
 					++numLoaded;
 				}
@@ -166,6 +163,7 @@ shared_ptr<hash> bucketInfo::getHash(const bucketIndex_t& index) {
 }
 
 void filesystem::bucketInfo::loadBuckets(script::JSONPtr metaInfo,const str & name) {
+	auto start = std::chrono::high_resolution_clock::now();
 	using namespace script::SLT;
 	auto l = metaInfo->getSize(name);
 	STOR->srvMESSAGE("loading ", l," ", name);
@@ -178,7 +176,9 @@ void filesystem::bucketInfo::loadBuckets(script::JSONPtr metaInfo,const str & na
 		accounting->post(postList.back());
 		postList.pop_back();
 	}
-	STOR->srvMESSAGE("Loaded ", numLoaded, " items from ", loaded.size()," ", name, " buckets");
+	auto finish = std::chrono::high_resolution_clock::now();
+	auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+	STOR->srvMESSAGE("Loaded ", numLoaded, " items from ", loaded.size()," ", name, " in ", milliseconds.count(),"ms");
 
 }
 
