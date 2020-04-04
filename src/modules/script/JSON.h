@@ -13,6 +13,7 @@
 #include <vector>
 #include <typeinfo>
 #include <typeindex>
+#include <algorithm>
 
 namespace script{
 	
@@ -105,7 +106,9 @@ namespace script{
 	template<> struct _classMap<int>           { typedef _intStor value; static constexpr bool valid = true;  typedef int_t   rettype;};
 	template<> struct _classMap<unsigned>      { typedef _intStor value; static constexpr bool valid = true;  typedef int_t   rettype;};
 	template<> struct _classMap<uint64_t>      { typedef _intStor value; static constexpr bool valid = true;  typedef int_t   rettype;};
+#ifndef _WIN32
 	template<> struct _classMap<unsigned long long>{ typedef _intStor value; static constexpr bool valid = true;  typedef int_t   rettype;};
+#endif
 	template<> struct _classMap<bool>          { typedef _intStor value; static constexpr bool valid = true;  typedef int_t   rettype;};
 	
 	template<> struct _classMap<str_t>         { typedef _strStor value; static constexpr bool valid = true;  typedef str_t   rettype;};

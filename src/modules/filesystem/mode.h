@@ -12,6 +12,30 @@
 #include <fcntl.h>
 #else
 #include <sys/stat.h>
+//Implement the definitions that are missing on windows.
+#define S_IFIFO _S_IFIFO
+#ifndef S_IFLNK
+#define S_IFLNK 00120000
+#endif
+
+#define S_IRUSR _S_IREAD
+#define S_IWUSR _S_IWRITE
+#define S_IXUSR _S_IEXEC
+#define S_IRWXU (_S_IREAD|_S_IWRITE|_S_IEXEC)
+
+#define S_ISUID 00004000
+#define S_ISGID 00002000
+#define S_ISVTX 00001000
+
+#define S_IRWXG 00000070
+#define S_IRGRP 00000040
+#define S_IWGRP 00000020
+#define S_IXGRP 00000010
+
+#define S_IRWXO 00000007
+#define S_IROTH 00000004
+#define S_IWOTH 00000002
+#define S_IXOTH 00000001
 #endif
 
 /*

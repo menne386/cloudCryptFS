@@ -5,7 +5,7 @@
 #define _SCRIPT_JSON_CPP
 #include "JSON.h"
 #include "main.h"
-#include <exception>
+#include <stdexcept>
 #include "lexer.h"
 #include <modules/util/str.h>
 #include <modules/util/to_string.h>

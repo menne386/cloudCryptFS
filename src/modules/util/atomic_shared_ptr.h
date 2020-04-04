@@ -14,7 +14,7 @@
 #endif
 
 namespace util{
-#if __cplusplus > 201703L
+#if __cplusplus > 202003L
 	template <typename T> 
 	using atomic_shared_ptr = std::atomic<std::shared_ptr<T>>;
 #else

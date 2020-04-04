@@ -34,6 +34,9 @@
     <Filter Include="Source Files\Modules\util">
       <UniqueIdentifier>{82867b87-9e7d-438f-a091-835f3c6ad338}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Modules\util\NewFilter1">
+      <UniqueIdentifier>{277fbbda-267b-4d55-b683-172f5cc8530b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\fuse_main.cpp">
@@ -81,9 +84,6 @@
     <ClCompile Include="..\src\modules\script\lexer.cpp">
       <Filter>Source Files\Modules\script</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\modules\script\script_complex.cpp">
-      <Filter>Source Files\Modules\script</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\modules\filesystem\bucketaccounting.cpp">
       <Filter>Source Files\Modules\filesystem</Filter>
     </ClCompile>
@@ -96,11 +96,17 @@
     <ClCompile Include="..\src\modules\util\endian.cpp">
       <Filter>Source Files\Modules\util</Filter>
     </ClCompile>
-    <ClCompile Include="storage.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\modules\filesystem\storage.cpp">
       <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\script\JSON.cpp">
+      <Filter>Source Files\Modules\script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\to_string.cpp">
+      <Filter>Source Files\Modules\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\modules\util\buildstring.cpp">
+      <Filter>Source Files\Modules\util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -178,9 +184,6 @@
     </ClInclude>
     <ClInclude Include="storage.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\modules\filesystem\storage.h">
-      <Filter>Source Files\Modules\filesystem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
