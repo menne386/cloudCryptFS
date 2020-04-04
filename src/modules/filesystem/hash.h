@@ -44,10 +44,12 @@ namespace filesystem {
 		
 		uint64_t fullindex() const { return m_fullindex.load(); }
 		uint64_t bucket() const { return m_bucket; }
-		uint8_t index() const { return m_index; }		
+		uint8_t index() const { return m_index; }
+
+		str toString() const;
 	};
 	
-	str to_string(const bucketIndex_t & in);
+	
 	
 
 	static_assert(sizeof(bucketIndex_t)==sizeof(uint64_t),"buckerIndex_t wrong size");

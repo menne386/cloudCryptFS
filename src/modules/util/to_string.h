@@ -8,34 +8,24 @@
 #include <cstddef>
 
 
-
-
-/*
-template<class T>
-typename std::enable_if<std::is_same<decltype(std::declval<const T&>().toString()), std::string>::value, std::string>::type my_to_string(const T &t) {
-	return t.toString();
-}
-
-template<class T>
-typename std::enable_if<std::is_same<decltype(std::to_string(std::declval<T&>())), std::string>::value, std::string>::type my_to_string(const T &t) {
-	return std::to_string(t);
-}
-
-*/
-
 namespace util{
 	
 	str to_string(const char * in);
 	str to_string(const str & in);
 	
 	
-	template<class T>
-	typename std::enable_if<std::is_same<decltype(std::declval<const T&>().toString()), str>::value, str>::type to_string(const T& t) {
+	template<class T, std::enable_if_t<std::is_same<decltype(std::declval<const T&>().toString()), str>::value, int> = 0 >
+	str to_string(const T& t) {
 		return t.toString();
 	}
 
-	template<class T>
-	typename std::enable_if<std::is_same<decltype(std::to_string(std::declval<T&>())), std::string>::value, str>::type to_string(const T& t) {
+	template<class T, std::enable_if_t<std::is_integral<T>::value, int> = 0 >
+	str to_string(const T& t) {
+		return std::to_string(t).c_str();
+	}
+
+	template<class T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0 >
+	str to_string(const T& t) {
 		return std::to_string(t).c_str();
 	}
 

@@ -18,8 +18,8 @@
 #include <mutex>
 using namespace filesystem;
 
-str filesystem::to_string(const bucketIndex_t & in) {
-	return util::to_string(in.bucket())+"#"+util::to_string(in.index());
+str bucketIndex_t::toString() const {
+	return util::to_string(bucket()) + "#" + util::to_string(index());
 }
 
 //protect hash with mutex!
