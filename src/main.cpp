@@ -81,7 +81,6 @@ int main(int argc, char *argv[]) {
 			FS->srvERROR("Found existing config.json, abort!");
 			return EXIT_FAILURE;
 		}
-		util::putSystemString(STOR->getPath()+"config.json",config->serialize(1));
 	} else {
 		if(cfg.empty()==false) {
 			FS->srvMESSAGE("Loading startup configuration");
@@ -92,12 +91,25 @@ int main(int argc, char *argv[]) {
 			return EXIT_FAILURE;
 		}
 	}
-	
+
+	str keyfileName = (*config)["keyfile"];
+	if (conf.keyfile) {
+		keyfileName = conf.keyfile;
+	}
+
 	auto protocol = crypto::protocolInterface::get(config);
-	
+	if (mustCreate) {
+		FS->srvMESSAGE("Storing new keyfile ", keyfileName);
+		util::putSystemString(keyfileName, protocol->createKeyfileContent());
+		FS->srvMESSAGE("Storing new config ", STOR->getPath() + "config.json");
+		util::putSystemString(STOR->getPath() + "config.json", config->serialize(1));
+	}
 	{
-		str passwd,passwd2="2";
-		
+		str passwd,passwd2="2",keyfileContent = util::getSystemString(keyfileName);
+		if (keyfileContent.empty()) {
+			CLOG("File ", keyfileName, " not found!");
+			return EXIT_FAILURE;
+		}
 		if(conf.password) {
 			passwd = conf.password;
 			passwd2 = conf.password;
@@ -111,10 +123,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}		
-		protocol->enterPassword(passwd);
-		//key = make_shared<crypto::key>(crypto::keytype::PASSWORD_KEY,passwd);
-		
-		//secret = make_shared<crypto::key>(crypto::keytype::PASSWORD_SECRET,passwd);
+		protocol->enterPasswordAndKeyFileContent(passwd, keyfileContent);
 	}
 	
 	
@@ -127,9 +136,9 @@ int main(int argc, char *argv[]) {
 		auto newConfig = script::make_json();
 		newConfig = crypto::protocolInterface::newConfig(conf.migrate);
 		auto newProtocol = crypto::protocolInterface::get(newConfig);
+		const str keyfileContent = newProtocol->createKeyfileContent();
 		{
 			str passwd,passwd2="2";
-			
 			if(conf.password) {
 				passwd = conf.password;
 				passwd2 = conf.password;
@@ -141,9 +150,11 @@ int main(int argc, char *argv[]) {
 					return EXIT_FAILURE;
 				}
 			}
-			newProtocol->enterPassword(passwd);
+			newProtocol->enterPasswordAndKeyFileContent(passwd, keyfileContent);
 		}
 		FS->migrate(std::move(newProtocol));
+		util::putSystemString(keyfileName + ".bak", util::getSystemString(keyfileName));//Backup old keyfile
+		util::putSystemString(keyfileName, keyfileContent);
 		util::putSystemString(STOR->getPath()+"config.json",newConfig->serialize(1));
 		services::stop_all_services();
 		return EXIT_SUCCESS;

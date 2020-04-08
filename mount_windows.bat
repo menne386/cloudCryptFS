@@ -1,1 +1,2 @@
-x64\Release\GDriveCrypt.exe --pass menne --src f:crypt/ X:
+x64\Release\GDriveCrypt.exe --pass menne --keyfile f:/crypt/keyfile.cer --src f:crypt/ X:
+pause

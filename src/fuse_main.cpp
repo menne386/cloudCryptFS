@@ -452,8 +452,6 @@ static struct fuse_opt myfs_opts[] = {
 	MYFS_OPT("loglevel=%s",        loglevel, 0),
 	MYFS_OPT("--keyfile %s",       keyfile, 0),
 	MYFS_OPT("keyfile=%s",         keyfile, 0),
-	MYFS_OPT("--key %s",           keybase64, 0),
-	MYFS_OPT("key=%s",             keybase64, 0),
 	MYFS_OPT("--pass %s",          password, 0),
 	MYFS_OPT("pass=%s",            password, 0),
 	MYFS_OPT("--create %s",        create, 0),

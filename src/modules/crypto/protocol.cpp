@@ -39,88 +39,42 @@ class protocol : public protocolInterface {
 			tagSize = 16U;//@todo: does libsodium have a definition of this?
 			IVSize = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
 			_filenamepublic = loadKey((*config)["filenamepublic"]);
-			if(MV>=1) {
-				_passwordpublic = loadKey((*config)["passwordpublic"]);
-			}
+			_passwordpublic = loadKey((*config)["passwordpublic"]);
+
+			(*config)["keyfile"] = "private_key_file.bin";
 		} else {
 			_UNDEFINED();
 		}
 	}
 	
-	void buildNewConfig() {
+	void buildNewConfig() override {
 		if(V==1) {
 			//Set options in config
 			_filenamepublic = newRandomKey();
 			storeKey(_filenamepublic,(*config)["filenamepublic"]);
 			
-			if(MV>=1) {
-				//From 1.1 forward we need a password public
-				_passwordpublic = newRandomKey();
-				storeKey(_passwordpublic,(*config)["passwordpublic"]);
-				(*config)["opslimit"] = crypto_pwhash_argon2id_OPSLIMIT_MODERATE;
-				(*config)["memlimit"] = crypto_pwhash_argon2id_MEMLIMIT_MODERATE;
-			}
+			//From 1.0 forward we need a password public
+			_passwordpublic = newRandomKey();
+			storeKey(_passwordpublic,(*config)["passwordpublic"]);
+			(*config)["opslimit"] = crypto_pwhash_argon2id_OPSLIMIT_MODERATE;
+			(*config)["memlimit"] = crypto_pwhash_argon2id_MEMLIMIT_MODERATE;
 		} else {
 			_UNDEFINED();
 		}
 	}
 	
-	void enterPassword(const str & input) {
-		//How the protocol handles entering a password:
+	void enterPasswordAndKeyFileContent(const str & input,const str & keyfileContent) override {
+		//How the protocol handles entering a password & a keyfile:
 		if(V == 1) {
 			{
+				sha256sum keyfileSum(_STRTOBYTESIZE(keyfileContent)); //Generate sha256 sum of file.
 				
-				if(MV==0) {
-					secbyteblock _realKey;
-					_realKey.resize(keySize,0);					
-					_ASSERT(sizeof(sha256sum) == keySize);
-					sha256sum s(_STRTOBYTESIZE(input));
-					s.copy(&_realKey[0]);
-					_protokey = make_shared<crypto::key>(_realKey);
-					{
-						auto hsh = _filenamepublic->use();
-						str sec(_STRTOCHARPSIZE(hsh));
-						sec+=":"+input;
-						sha256sum s2(_STRTOBYTESIZE(sec));
-						s2.copy(&_realKey[0]);
-						_filenamesecret = make_shared<crypto::key>(_realKey);
-					}
-				} else if(MV>=1) {
-					CLOG(crypto_pwhash_argon2id_SALTBYTES,":",keySize);
-					//From version 1.1 & forward argon2 is used to generate the keys and the secret.
-					_ASSERT(_filenamepublic!=nullptr);
-					_ASSERT(_passwordpublic!=nullptr);
-					_ASSERT(crypto_pwhash_argon2id_SALTBYTES <= _filenamepublic->size());
-					_ASSERT(crypto_pwhash_argon2id_SALTBYTES <= _passwordpublic->size());
-					{
-						secbyteblock _realKey;
-						_realKey.resize(keySize,0);
-						auto salt = _passwordpublic->use();
-						_ASSERT(crypto_pwhash_argon2id(
-							_STRTOBYTESIZEOUT(_realKey),
-	                       _STRTOCHARPSIZE(input),
-	                       salt.data(),
-	                       (*config)["opslimit"], (*config)["memlimit"],
-										
-	                       crypto_pwhash_argon2id_ALG_ARGON2ID13
-						)==0);
-						_protokey = make_shared<crypto::key>(_realKey);
-					}
-					{
-						secbyteblock _realKey;
-						_realKey.resize(keySize,0);						
-						auto salt = _filenamepublic->use();
-						_ASSERT(crypto_pwhash_argon2id(
-							_STRTOBYTESIZEOUT(_realKey),
-	                       _STRTOCHARPSIZE(input),
-	                       salt.data(),
-	                       (*config)["opslimit"], (*config)["memlimit"],
-	                       crypto_pwhash_argon2id_ALG_ARGON2ID13
-						)==0);
-						_filenamesecret = make_shared<crypto::key>(_realKey);
-					}
-					
-				}
+				const str fullInput = keyfileSum.toShortStr() + input; //The full password input == base64(keyfileSum) + input;
+				 
+				_ASSERT(_filenamepublic!=nullptr);
+				_ASSERT(_passwordpublic!=nullptr);
+				_protokey = expandToKey(_passwordpublic,fullInput);
+				_filenamesecret = expandToKey(_filenamepublic, fullInput);
 			}
 		} else {
 			_UNDEFINED();
@@ -129,17 +83,17 @@ class protocol : public protocolInterface {
 		_ASSERT(_protokey!=nullptr);
 	}
 	
-	void regenerateEncryptionKey(void) {
+	void regenerateEncryptionKey(void) override {
 		_key = newRandomKey();
 	}
 	
 	/* Store a Key to a JSON object*/
-	bool storeKey(shared_ptr<key> k,script::JSONPtr configNode ) {
+	bool storeKey(shared_ptr<key> k,script::JSONPtr configNode ) override {
 		k->toBase64String(configNode->get<S>("key"));
 		return true;
 	}
 	
-	shared_ptr<key> loadKey(script::JSONPtr configNode) {
+	shared_ptr<key> loadKey(script::JSONPtr configNode) override {
 		str input=(*configNode)["key"];
 		secbyteblock out;
 		out.resize(input.size());
@@ -155,20 +109,43 @@ class protocol : public protocolInterface {
 		}
 		return nullptr;
 	}
+
+	shared_ptr<key> expandToKey(shared_ptr<key> saltKey,const str & input) override {
+		//From version 1.0 & forward is used to generate the keys
+		if (V == 1) {
+			_ASSERT(saltKey != nullptr);
+			_ASSERT(crypto_pwhash_argon2id_SALTBYTES <= saltKey->size());
+
+			secbyteblock _realKey;
+			_realKey.resize(keySize, 0);
+			auto salt = saltKey->use();
+			_ASSERT(crypto_pwhash_argon2id(
+				_STRTOBYTESIZEOUT(_realKey),
+				_STRTOCHARPSIZE(input),
+				salt.data(),
+				(*config)["opslimit"], (*config)["memlimit"],
+				crypto_pwhash_argon2id_ALG_ARGON2ID13
+			) == 0);
+			return make_shared<crypto::key>(_realKey);
+		} else {
+			_UNDEFINED();
+		}
+	}
+
 	
 	/* Store the current encryption key to a configuration string */
-	bool storeEncryptionKeyToBlock(script::JSONPtr out) {
+	bool storeEncryptionKeyToBlock(script::JSONPtr out) override {
 		storeKey(_key,out);
 		return true;
 	}
 	
 	/* Load the encryption key from a config string */
-	bool loadEncryptionKeyFromBlock(script::JSONPtr in) {
+	bool loadEncryptionKeyFromBlock(script::JSONPtr in) override {
 		_key = loadKey(in);
 		return _key!=nullptr;
 	}
 	
-	str getBucketFileName(int64_t id) {
+	str getBucketFileName(int64_t id) override {
 		//Defines how the protocol creates filenames for "normal" buckets
 		str nameInput = str(std::to_string(id).c_str())+":bucket:";
 		{
@@ -178,7 +155,7 @@ class protocol : public protocolInterface {
 		return crypto::sha256sum(_STRTOBYTESIZE(nameInput)).toLongStr();
 	}
 	
-	str getMetaBucketFileName(int64_t id) {
+	str getMetaBucketFileName(int64_t id) override {
 		//Defines how the protocol creates filename for "hidden" buckets
 		str nameInput = str(std::to_string(id).c_str())+":metabucket:";
 		{
@@ -188,13 +165,13 @@ class protocol : public protocolInterface {
 		return crypto::sha256sum(_STRTOBYTESIZE(nameInput)).toLongStr();
 	}
 	
-	shared_ptr<key> newRandomKey() {
+	shared_ptr<key> newRandomKey() override {
 		secbyteblock _realKey;
 		_realKey.resize(keySize);
 		randombytes_buf(&_realKey[0],keySize);
 		return make_shared<crypto::key>(_realKey);
 	}
-	shared_ptr<key> newRandomIV() {
+	shared_ptr<key> newRandomIV() override {
 		secbyteblock _realIV;
 		_realIV.resize(IVSize);
 		randombytes_buf(&_realIV[0],IVSize);
@@ -202,7 +179,7 @@ class protocol : public protocolInterface {
 	}
 	
 	
-	void encrypt(shared_ptr<key> k,const str & in, str & out) {
+	void encrypt(shared_ptr<key> k,const str & in, str & out) override {
 		auto _iv = newRandomIV();
 		auto ivbytes = _iv->use();
 		out.resize(	in.size()+crypto_aead_xchacha20poly1305_ietf_ABYTES);
@@ -225,7 +202,7 @@ class protocol : public protocolInterface {
 		//Append the IV to the data:
 		out.append(reinterpret_cast<const char *>(ivbytes.data()),ivbytes.size());	
 	}
-	void decrypt(shared_ptr<key> k,const str & in, str & out) {
+	void decrypt(shared_ptr<key> k,const str & in, str & out) override {
 		str cipher = in.substr(0,in.size()-IVSize);
 		
 		//split out the IV:
@@ -256,6 +233,16 @@ class protocol : public protocolInterface {
 		out.resize(output_length);
 	}
 
+
+	str createKeyfileContent(void) override {
+		str content;
+		for (int a = 0; a < 5; a++) {
+			auto _k = newRandomKey();
+			auto _ku = _k->use();
+			content.append(_STRTOCHARPSIZE(_ku));
+		}
+		return content;
+	}
 	
 };
 
@@ -275,18 +262,17 @@ unique_ptr<protocolInterface> protocolInterface::get(script::JSONPtr config) {
 		throw std::logic_error("bad protocol version nr");
 	}
 	int major = std::stoi(out[0].c_str()), minor = std::stoi(out[1].c_str());
-
+	_RETURNPROTOCOL(0,0,false);
 	_RETURNPROTOCOL(1,0,false);
-	_RETURNPROTOCOL(1,1,false);	
 	throw std::logic_error("protocol version could not be instantiated");
 }
 
 script::JSONPtr protocolInterface::newConfig(str version) {
 	auto ret = script::make_json();
 	if(version=="latest") {
-		version = "1.1";
+		version = "1.0";
 	} else if(version=="latest_b") {
-		version = "1.1b";
+		version = "1.0b";
 	}
 	(*ret)["version"] = version;
 	{

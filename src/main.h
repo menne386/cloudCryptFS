@@ -27,13 +27,12 @@ void assertfail(int condition,const char * string);
 #define _ASSERT(CONDITION) assertfail((int)(CONDITION),"_ASSERT(" #CONDITION "); is false in " __FILE__ )
 
 struct myfs_config {
-	char *source;
-	char *keyfile;
-	char *keybase64;
-	char *password;
-	char *create;
-	char *migrate;
-	char *loglevel;
+	const char *source;
+	const char *keyfile;
+	const char *password;
+	const char *create;
+	const char *migrate;
+	const char *loglevel;
 };
 
 #ifdef _WIN32

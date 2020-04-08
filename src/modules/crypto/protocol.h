@@ -43,9 +43,18 @@ namespace crypto{
 		virtual void buildNewConfig()=0;
 		
 		/* This function is called when user enters password, it will set up proto encryption key and related secrets */
-		/* @todo: the protocol should allow for key files, and key files + passwords */
-		virtual void enterPassword(const str & input) = 0;
+		/* the protocol should allow for key files + passwords */
+		virtual void enterPasswordAndKeyFileContent(const str & input,const str & keyfileContent) = 0;
 		
+		/* store a key to JSON config node. */
+		virtual bool storeKey(shared_ptr<key> k, script::JSONPtr configNode) = 0;
+
+		/* load a key from JSON config node. */
+		virtual shared_ptr<key> loadKey(script::JSONPtr configNode) = 0;
+
+		/* Expand a salt + a user input to a key */
+		virtual shared_ptr<key> expandToKey(shared_ptr<key> saltKey, const str& input) = 0;
+
 		/* Regenerate the main encryption Key */
 		virtual void regenerateEncryptionKey(void) = 0;
 		
@@ -56,6 +65,7 @@ namespace crypto{
 		
 		/* Store the current encryption key to a configuration string */
 		virtual bool storeEncryptionKeyToBlock(script::JSONPtr out) = 0;
+
 		/* Load the encryption key from a config string */
 		virtual bool loadEncryptionKeyFromBlock(script::JSONPtr in) = 0;
 		
@@ -76,7 +86,9 @@ namespace crypto{
 		/* Use a key to decrypt data */
 		virtual void decrypt(shared_ptr<key> k,const str & in, str & out) = 0;
 		
-			
+		/* Regenerate content for a keyfile */
+		virtual str createKeyfileContent(void) = 0;
+
 		
 	};
 	
