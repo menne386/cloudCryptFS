@@ -24,7 +24,7 @@ using namespace crypto;
 using namespace script::SLT;
 
 #define _UNDEFINED() throw std::logic_error(std::string("Protocol undefined for function ")+std::string( __func__) );
-str protocolInterface::getVersion() { return BUILDSTRING(majorVer,".",minorVer,isAlt?"b":""); }
+
 
 
 template<size_t V, size_t MV,bool VA>
@@ -32,7 +32,7 @@ class protocol : public protocolInterface {
 	private:
 	shared_ptr<key> _filenamepublic,_filenamesecret,_passwordpublic;	
 	public:
-	protocol(script::JSONPtr config): protocolInterface(V,MV,VA,config) {
+	protocol(script::JSONPtr config): protocolInterface(config) {
 		if(V==1) {
 			//Protocol version 1 uses crypto_aead_xchacha20poly1305_ietf construction
 			keySize = crypto_aead_xchacha20poly1305_ietf_KEYBYTES;
@@ -45,6 +45,22 @@ class protocol : public protocolInterface {
 		} else {
 			_UNDEFINED();
 		}
+	}
+	
+	str getVersion() override { 
+		return getStaticVersion();
+	}
+	
+	static str getStaticVersion() { 
+		return BUILDSTRING(V,".",MV,VA?"b":""); 
+	}
+	
+	static bool createIfVersionMatches(const str & in, unique_ptr<protocolInterface> & prot,script::JSONPtr inConfig) {
+		if(in == getStaticVersion()) {
+			prot = make_unique<protocol<V,MV,VA>>(inConfig);
+			return true;
+		}
+		return false;
 	}
 	
 	void buildNewConfig() override {
@@ -246,24 +262,14 @@ class protocol : public protocolInterface {
 	
 };
 
-
-#define _RETURNPROTOCOL(MAJOR,MINOR,ALT) if(major==MAJOR && minor == MINOR && alt == ALT) { return make_unique<protocol<MAJOR,MINOR,ALT>>(config); }
- 
 unique_ptr<protocolInterface> protocolInterface::get(script::JSONPtr config) {
 	str version = (*config)["version"];
-	bool alt = false;
-	if(version.empty())	throw std::logic_error("bad protocol version nr");
-	if(version.back()=='b') {alt = true; version.pop_back();}
-	if(version.empty())	throw std::logic_error("bad protocol version nr");
-	
-	
-	str_list out;
-	if(strSplit(version,".",out)!=2) {
-		throw std::logic_error("bad protocol version nr");
-	}
-	int major = std::stoi(out[0].c_str()), minor = std::stoi(out[1].c_str());
-	_RETURNPROTOCOL(0,0,false);
-	_RETURNPROTOCOL(1,0,false);
+	unique_ptr<protocolInterface> ret;
+
+	//The list of protocols:	
+	if(protocol<1,0,false>::createIfVersionMatches(version,ret,config)) { return ret; }
+	if(protocol<0,0,false>::createIfVersionMatches(version,ret,config)) { return ret; }
+
 	throw std::logic_error("protocol version could not be instantiated");
 }
 

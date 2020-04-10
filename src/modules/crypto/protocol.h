@@ -11,12 +11,7 @@
 
 
 namespace crypto{
-	class protocolInterface{
-		private:
-		size_t majorVer;
-		size_t minorVer;
-		bool isAlt;
-		
+	class protocolInterface{		
 		protected:
 		
 		script::JSONPtr config;
@@ -26,18 +21,20 @@ namespace crypto{
 		
 		public:
 		
-		protocolInterface(size_t iversion,size_t iminor,bool iIsAlt,script::JSONPtr iconfig) : majorVer(iversion),minorVer(iminor),isAlt(iIsAlt), config(iconfig) {}
+		protocolInterface(script::JSONPtr iconfig) : config(iconfig) {}
 		virtual ~protocolInterface() {}
 		
 		/* Get the protocol defined by a configuration set: */
 		static unique_ptr<protocolInterface> get(script::JSONPtr config);
 		static script::JSONPtr newConfig(str version);
 
-		str getVersion();
 		//Return encryption key sizes and such:
 		size_t getKeysize() { return keySize; }
 		size_t getIVSize() { return IVSize; }
 		size_t getTagSize() { return tagSize; }
+
+		virtual str getVersion() = 0;
+
 		
 		/* Builds fills the internal config array with protocol specific config data (when creating a new filesystem!) */
 		virtual void buildNewConfig()=0;
