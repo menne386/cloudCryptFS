@@ -32,19 +32,19 @@ bool util::fileExists(const str & name,size_t * size) {
 	return false;
 }
 
-template<class T>
-void openfile(T& F, const str& fname, int mod) {
+template<class T,typename T2>
+bool openfile(T& F, const str& fname, T2 mod) {
 #ifdef _WIN32
 	F.open(fname.c_str(), mod, _SH_DENYRW);
 #else
 	F.open(fname.c_str(), mod);
 #endif
+	return F.is_open();
 }
 
 str util::getSystemString(const str & fname,uint64_t offset) {
 	std::ifstream F;
-	openfile(F,fname,std::ios::binary|std::ios::in);
-	if(F.is_open()) {
+	if(openfile(F,fname,std::ios::binary|std::ios::in)) {
 		if(offset) {
 			F.seekg(offset);
 		}
@@ -53,25 +53,25 @@ str util::getSystemString(const str & fname,uint64_t offset) {
 	return "";
 }
 
-void util::putSystemString(const str & fname, const str & content) {
+bool util::putSystemString(const str & fname, const str & content) {
 	std::ofstream F;
-	openfile(F, fname, std::ios::binary|std::ios::out);
-	if(F.is_open()) {
+	if(openfile(F, fname, std::ios::binary|std::ios::out)) {
 		F.write(content.data(),content.size());
-	} else {
-		CLOG("Failed to write to file ",fname);
-	}
+		return true;
+	} 
+	CLOG("Failed to write to file ",fname);
+	return false;
 }
-void util::replaceIntoSystemString(const str & path,const str & content,uint64_t offset) {
+bool util::replaceIntoSystemString(const str & path,const str & content,uint64_t offset) {
 	std::fstream F;
-	openfile(F, path, std::ios::binary|std::ios::out|std::ios::in);
-	if(F.is_open()) {
+	if(openfile(F, path, std::ios::binary|std::ios::out|std::ios::in)) {
 		if(offset) {
 			F.seekp(offset);
 			_ASSERT((uint64_t)F.tellp()==offset);
 		}
 		F.write(content.data(),content.size());
-	} else {
-		CLOG("Failed to replace into file ",path);
-	}
+		return true;
+	} 
+	CLOG("Failed to replace into file ",path);
+	return false;
 }
