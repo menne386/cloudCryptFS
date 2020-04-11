@@ -445,7 +445,6 @@ void file::loadHashes(void) {
 			}
 		}
 		if(numHashes) {
-			
 			FS->srvWARNING(numHashes," missing hashes for file:",path);
 			for(size_t a =0;a<numHashes;a++) {
 				FS->zeroHash()->incRefCnt();
@@ -473,12 +472,18 @@ void file::updateTimesWith(bool A,bool C, bool M,const timeHolder & t) {
 }
 
 
-void file::truncate(my_off_t newSize) {
+my_err_t file::truncate(my_off_t newSize) {
 	if(!valid()) {
-		return;
+		return EE::entity_not_found;
 	}
+	
 	//No locking required as it only updates atomic metaData & works with the atomic hashList.
-	if(_type!=specialFile::REGULAR) return ;
+	if(_type!=specialFile::REGULAR) return EE::entity_not_found;
+	
+	if(newSize > maxFileSize) {
+		return EE::too_big;
+	}
+	
 	lckunique l(_mut);//@todo: test locking for this operation, somehow truncating a file can change the md5 of another file!!
 	
 	FS->srvDEBUG("file::truncate: ", path, " to ", newSize);
@@ -501,7 +506,6 @@ void file::truncate(my_off_t newSize) {
 		toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
 		_ASSERT(toDelete.size()==expected);
 		for (auto deleteHash : toDelete) {
-			//@todo: && deleteHash.get() != FS->zeroHash().get() ??? research required!
 			if(deleteHash ) {
 				--expected;
 				deleteHash->decRefCnt();
@@ -510,11 +514,22 @@ void file::truncate(my_off_t newSize) {
 		}
 		toDelete.clear();//This will call rest for all hashes that are exclusivly owned by this
 		_ASSERT(expected==0);
+	} else if(newNum>hashList.getSize()) {
+		try{
+			auto numAdded = hashList.truncateAndReturn(newNum,FS->zeroHash()).size();
+			for(size_t a=0;a<numAdded;a++) {
+				FS->zeroHash()->incRefCnt();
+			}
+		} catch( std::exception & e) {
+			return EE::too_big;
+		}
 	}
+	
 	
 	
 	INode()->size = newSize;
 	rest();
+	return EE::ok;
 }
 
 my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {

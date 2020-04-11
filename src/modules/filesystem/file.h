@@ -67,6 +67,8 @@ namespace filesystem{
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
 		~file();
+		
+		static constexpr my_off_t maxFileSize = 1024l*1024l*1024l*1024l*4l; // 4TB max file size;
 		std::vector<permission> getPathPermissions() {return pathPermissions;};
 		bool isSpecial() { return _type!=specialFile::REGULAR; }
 		bool valid() {return (_type!=specialFile::ERROR && isDeleted==false);}
@@ -120,7 +122,7 @@ namespace filesystem{
 		bool swapContent(const str & newContent);
 		
 		void loadStat(fileType * T,my_mode_t * M,my_off_t * S,my_gid_t * G,my_uid_t * U,timeHolder * at,timeHolder * mt,timeHolder * ct, my_ino_t * in);
-		void truncate(my_off_t newSize);
+		my_err_t truncate(my_off_t newSize);
 		my_off_t read(unsigned char * buf,my_size_t size, const my_off_t offset);
 		my_off_t write(const unsigned char * buf,my_size_t size,const my_off_t offset);
 		bool rest(void);

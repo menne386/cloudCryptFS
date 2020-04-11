@@ -347,8 +347,10 @@ static int truncate_callback (const char *path, my_off_t newSize) {
 		if(F->validate_access(ctx.get(),access::W)==false) {
 			return -EACCES;
 		}
-		F->truncate(newSize);
-		F->rest();
+		auto e = F->truncate(newSize);
+		if(e) {
+			return error_to_fuse(e);
+		}
 		return 0;
 	}
 	
