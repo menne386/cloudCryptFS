@@ -7,7 +7,7 @@
  */
 #include "main.h"
 
-#define FUSE_USE_VERSION 27
+#define FUSE_USE_VERSION 30
 #include <fuse.h>
 #include "modules/filesystem/fs.h"
 #include "modules/filesystem/storage.h"
@@ -526,6 +526,9 @@ int fallocate_callback(const char *, int, off_t, off_t, struct fuse_file_info *)
 int ioctl_callback(const char *, int cmd, void *arg, struct fuse_file_info *, unsigned int flags, void *data){ FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
 int poll_callback(const char *, struct fuse_file_info *, struct fuse_pollhandle *ph, unsigned *reventsp){ FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
 
+ssize_t copy_file_range_callback(const char *path_in, struct fuse_file_info *fi_in, off_t offset_in, const char *path_out, struct fuse_file_info *fi_out, off_t offset_out, size_t size, int flags) { FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
+
+
 
 
 int _realMain( void * parsedArgs) {
@@ -543,6 +546,7 @@ int _realMain( void * parsedArgs) {
 	cloudcryptops.ioctl = ioctl_callback;
 	cloudcryptops.flock = flock_callback;
 	cloudcryptops.fallocate = fallocate_callback;
+	//cloudcryptops.copy_file_range = copy_file_range_callback; //@todo: can implement this after moving to fuse3
 #endif	
 	cloudcryptops.flush = flush_callback;
 	cloudcryptops.fsync = fsync_callback;
