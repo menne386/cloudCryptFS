@@ -263,7 +263,7 @@ class protocol : public protocolInterface {
 };
 
 unique_ptr<protocolInterface> protocolInterface::get(script::JSONPtr config) {
-	str version = (*config)["version"];
+	const str & version = (*config)["version"];
 	unique_ptr<protocolInterface> ret;
 
 	//The list of protocols:	
