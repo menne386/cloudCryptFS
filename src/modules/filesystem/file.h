@@ -68,7 +68,7 @@ namespace filesystem{
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
 		~file();
 		
-		static constexpr my_off_t maxFileSize = 1024l*1024l*1024l*1024l*4l; // 4TB max file size;
+		static constexpr my_off_t maxFileSize = 1024l*1024l*1024l*1024l*16l; // 16TB max file size;
 		std::vector<permission> getPathPermissions() {return pathPermissions;};
 		bool isSpecial() { return _type!=specialFile::REGULAR; }
 		bool valid() {return (_type!=specialFile::ERROR && isDeleted==false);}
