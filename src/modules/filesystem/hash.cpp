@@ -43,12 +43,12 @@ bool hash::isFlags(flagtype in) {
 }
 
 
-script::int_t hash::getRefCnt() {
+my_off_t hash::getRefCnt() {
 	return refcnt.load();
 }
 
-script::int_t hash::incRefCnt() {
-	++refcnt;
+my_off_t hash::incRefCnt(my_off_t in) {
+	refcnt += in;
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE)==false) {
 		_ASSERT(isFlags(FLAG_DELETED)==false);//Never revide a dead hash!
 		STOR->buckets->getBucket(bucketIndex.bucket())->hashChanged();
@@ -56,8 +56,8 @@ script::int_t hash::incRefCnt() {
 	return refcnt;
 }
 
-script::int_t hash::decRefCnt() {
-	--refcnt;
+my_off_t hash::decRefCnt(my_off_t in) {
+	refcnt -= in;
 	if(isFlags(FLAG_NOAUTOLOAD|FLAG_NOAUTOSTORE|FLAG_DELETED)==false) {
 		if (refcnt == 0) {
 			setFlags(FLAG_DELETED);

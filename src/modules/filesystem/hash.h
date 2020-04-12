@@ -59,7 +59,7 @@ namespace filesystem {
 		typedef uint32_t flagtype;
 		const crypto::sha256sum _hsh;
 		const bucketIndex_t bucketIndex;
-		std::atomic<script::int_t> refcnt;		
+		std::atomic<my_off_t> refcnt;		
 		util::atomic_shared_ptr<chunk> _data;
 		std::atomic<flagtype> flags;
 		void clearFlags(flagtype in);
@@ -76,9 +76,10 @@ namespace filesystem {
 		const crypto::sha256sum & getHashPrimitive() {return _hsh;};
 		script::str_t getHashStr() const { return _hsh.toShortStr(); };
 		const bucketIndex_t getBucketIndex() const { return bucketIndex; };
-		script::int_t getRefCnt();
-		script::int_t incRefCnt();
-		script::int_t decRefCnt();
+		my_off_t getRefCnt();
+		my_off_t incRefCnt(my_off_t in=1);
+		my_off_t decRefCnt(my_off_t in=1);
+		
 		
 		bool compareChunk(shared_ptr<chunk> c);
 		

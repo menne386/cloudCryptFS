@@ -446,9 +446,7 @@ void file::loadHashes(void) {
 		}
 		if(numHashes) {
 			FS->srvWARNING(numHashes," missing hashes for file:",path);
-			for(size_t a =0;a<numHashes;a++) {
-				FS->zeroHash()->incRefCnt();
-			}
+			FS->zeroHash()->incRefCnt(numHashes);
 		}
 		_ASSERT(hashList.updateRange(0,hashes)==true);
 	}
@@ -517,9 +515,7 @@ my_err_t file::truncate(my_off_t newSize) {
 	} else if(newNum>hashList.getSize()) {
 		try{
 			auto numAdded = hashList.truncateAndReturn(newNum,FS->zeroHash()).size();
-			for(size_t a=0;a<numAdded;a++) {
-				FS->zeroHash()->incRefCnt();
-			}
+			FS->zeroHash()->incRefCnt(numAdded);
 		} catch( std::exception & e) {
 			return EE::too_big;
 		}
@@ -642,7 +638,7 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 	if(numHashes!=hashList.getSize()) {
 		_ASSERT(hashList.getSize()<numHashes);
 		auto addedChunks = hashList.truncateAndReturn(numHashes,FS->zeroHash()).size();
-		for(my_size_t a=0;a<addedChunks;a++) { FS->zeroHash()->incRefCnt(); }
+		FS->zeroHash()->incRefCnt(addedChunks);
 	}
 	
 	try{
