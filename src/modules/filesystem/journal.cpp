@@ -10,16 +10,19 @@
 using namespace filesystem;
 
 
-journalEntry::journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode, const str & inewNodeName) 
-	: id(iid), type(itype), parentNode(iparentNode), newNode(inewNode), newParentNode(inewParentNode) {
+journalEntry::journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const str & inewNodeName) 
+	: id(iid), type(itype), parentNode(iparentNode), newNode(inewNode), newParentNode(inewParentNode),mod(imod) {
+		
 	_ASSERT(inewNodeName.size()<sizeof(newNodeName));
 	std::fill(std::begin(newNodeName),std::end(newNodeName),0);
 	std::copy(inewNodeName.begin(),inewNodeName.end(),std::begin(newNodeName));
-	
+
+	JOURNAL->srvDEBUG("Adding journal entry ",id);
 	//util::putSystemString(STOR->getPath()+"journal/"+);
 }
 
 journalEntry::~journalEntry() {
+	JOURNAL->srvDEBUG("Removing journal entry ",id);
 	
 }
 

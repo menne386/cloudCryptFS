@@ -21,6 +21,7 @@
 #include <modules/util/files.h>
 #include <modules/util/console.h>
 #include "modules/util/endian.h"
+#include "modules/filesystem/journal.h"
 
 bool Fully_up_and_running = false;
 
@@ -40,6 +41,7 @@ int main(int argc, char *argv[]) {
 	if(conf.loglevel) {
 		STOR->setLogLevel(std::stoi(conf.loglevel));
 		FS->setLogLevel(std::stoi(conf.loglevel));
+		JOURNAL->setLogLevel(std::stoi(conf.loglevel));
 
 	}
 	

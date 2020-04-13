@@ -15,7 +15,7 @@ namespace filesystem {
 	using services::service;
 
 	enum class journalEntryType : uint32_t {
-		mkdir=0x01,mknod=0x02,write=0x03,unlink=0x04
+		mkobject=0x02,write=0x03,unlink=0x04
 	};
 	
 	class journalEntry{
@@ -25,9 +25,10 @@ namespace filesystem {
 		const bucketIndex_t parentNode; //if the change needs a parentNode
 		const bucketIndex_t newNode; //The new node
 		const bucketIndex_t newParentNode; // For when moving a node.
+		const my_mode_t mod;
 		char newNodeName[256]; //newNodeName
 		
-		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode, const str & inewNodeName);
+		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode, const my_mode_t imod, const str & inewNodeName);
 		~journalEntry();
 		
 	};

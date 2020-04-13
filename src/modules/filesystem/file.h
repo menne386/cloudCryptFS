@@ -62,7 +62,7 @@ namespace filesystem{
 		bool requireType(fileType required);
 		void loadHashes(void);
 		bool validate_ownership(const context * ctx,my_mode_t newMode);
-		inode * INode() {return metaChunk->as<inode>();} 
+		inode * INode() const {return metaChunk->as<inode>();} 
 	public:
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
@@ -95,6 +95,8 @@ namespace filesystem{
 		my_size_t size();
 		my_mode_t mode();
 		my_ino_t ino();
+		
+		bucketIndex_t bucketIdx() const {return INode()->myID; };
 		
 		int getOpenHandles() const { return refs.load(); }
 		

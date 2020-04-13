@@ -258,7 +258,8 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 
 metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context * ctx,my_mode_t type, my_mode_t mod) {
 	//@todo: should fix this function to be more journaling friendly (have type parameter for each type of object added).
-	_ASSERT((type&mode::TYPE));
+	_ASSERT((type&mode::TYPE)!=0);
+	
 	srvDEBUG("mkobject ",filename);
 	str parentname = getParentPath(filename);
 	str childname = getChildPath(filename);
@@ -283,6 +284,8 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	file::setFileDefaults(newInode,mod|type,ctx);
 	
 	auto ino = newInode->as<inode>()->myID = STOR->metaBuckets->accounting->fetch();
+	
+	auto entry = JOURNAL->add(journalEntryType::mkobject,parent->bucketIdx(),ino,bucketIndex_t(),mod|type,childname);
 	srvDEBUG("trying to add node ",childname," to parent path ",parentname);
 	errorcode = parent->addNode(childname,newInode,false,ctx);
 	if(errorcode){
