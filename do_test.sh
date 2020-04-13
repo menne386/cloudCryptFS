@@ -93,7 +93,12 @@ OUTPUT="/output"
 while (( "$#" )); do
 
 echo "running test... $1"
-if [[ "$1" == "create_read" ]]; then
+if [[ "$1" == "crashresistant" ]]; then
+		cp /cloudCryptFS.docker /mnt/crashfile -v
+		kill -9 `pidof cloudCryptFS.docker`
+		rm -fv /srv/._lock
+		touch /output/crashresistant
+elif [[ "$1" == "create_read" ]]; then
 		cp /cloudCryptFS.docker /mnt/ccfstestfile -v
 		cp /testfile1 /mnt -v
 		cp /testfile2 /mnt -v
@@ -161,6 +166,10 @@ chown -R $UIDGID /output
 check_for_crash
 
 {
+
+if [[ -f "/output/crashresistant" ]]; then
+	compare_files /mnt/crashfile /cloudCryptFS.docker
+fi
 
 if [[ -f "/output/create_read" ]]; then
 	compare_files /mnt/testfile1 /testfile1
