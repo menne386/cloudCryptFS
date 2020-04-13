@@ -1007,7 +1007,7 @@ bool file::close(void) {
 	return false;
 }
 
-void file::setFileDefaults(std::shared_ptr<chunk> meta,const context * ctx) {
+void file::setFileDefaults(std::shared_ptr<chunk> meta,my_mode_t mod,const context * ctx) {
 
 	if(ctx) {
 		//CLOG("Set file defaults ",ctx->uid," ",ctx->gid);
@@ -1018,14 +1018,16 @@ void file::setFileDefaults(std::shared_ptr<chunk> meta,const context * ctx) {
 		meta->as<inode>()->gid = getgid();
 	}
 
-	meta->as<inode>()->mode = 0777;
+	meta->as<inode>()->mode = mod;
 	
 	timeHolder tv = currentTime();
 	meta->as<inode>()->mtime=tv;
 	meta->as<inode>()->atime=tv;
 	meta->as<inode>()->ctime=tv;
+	
+	meta->as<inode>()->nlinks = 1;
 }
-void file::setDirMode(std::shared_ptr<chunk> meta,my_mode_t m) {
+/*void file::setDirMode(std::shared_ptr<chunk> meta,my_mode_t m) {
 	_ASSERT((m&mode::TYPE)==0);
 	meta->as<inode>()->mode = m | mode::TYPE_DIR;	
 }
@@ -1033,5 +1035,5 @@ void file::setFileMode(std::shared_ptr<chunk> meta,my_mode_t m, my_dev_t dev)  {
 	_ASSERT((m&mode::TYPE)!=0);
 
 	meta->as<inode>()->mode = m;
-}
+}*/
 

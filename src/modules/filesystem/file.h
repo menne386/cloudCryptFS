@@ -131,9 +131,9 @@ namespace filesystem{
 		void open(void); //Open a handle to the file.
 		bool close(void); //Close a handle to the file.
 		
-		static void setFileDefaults(std::shared_ptr<chunk> meta,const context * ctx=nullptr) ;
-		static void setDirMode(std::shared_ptr<chunk> meta,my_mode_t mode) ;
-		static void setFileMode(std::shared_ptr<chunk> meta,my_mode_t mode, my_dev_t dev) ;
+		static void setFileDefaults(std::shared_ptr<chunk> meta,my_mode_t mod,const context * ctx=nullptr) ;
+		//static void setDirMode(std::shared_ptr<chunk> meta,my_mode_t mode) ;
+		//static void setFileMode(std::shared_ptr<chunk> meta,my_mode_t mode, my_dev_t dev) ;
 		
 		
 	};

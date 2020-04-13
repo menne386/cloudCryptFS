@@ -184,8 +184,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 		auto rootChunk = chunk::newChunk(0,nullptr);
 		auto metaChunk = chunk::newChunk(0,nullptr);
 		//Build up the root index;
-		file::setFileDefaults(rootChunk); //Context???
-		file::setDirMode(rootChunk,0777);
+		file::setFileDefaults(rootChunk,0777|mode::TYPE_DIR); //Context???
 		rootChunk->as<inode>()->myID = rootIndex;
 		rootChunk->as<inode>()->metaID = metaIndex;
 		
@@ -257,8 +256,9 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 
 
 
-metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context * ctx) {
+metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context * ctx,my_mode_t type, my_mode_t mod) {
 	//@todo: should fix this function to be more journaling friendly (have type parameter for each type of object added).
+	_ASSERT((type&mode::TYPE));
 	srvDEBUG("mkobject ",filename);
 	str parentname = getParentPath(filename);
 	str childname = getChildPath(filename);
@@ -280,8 +280,8 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	}
 	
 	auto newInode = chunk::newChunk(0,nullptr);
-	file::setFileDefaults(newInode,ctx);
-	newInode->as<inode>()->nlinks = 1;
+	file::setFileDefaults(newInode,mod|type,ctx);
+	
 	auto ino = newInode->as<inode>()->myID = STOR->metaBuckets->accounting->fetch();
 	srvDEBUG("trying to add node ",childname," to parent path ",parentname);
 	errorcode = parent->addNode(childname,newInode,false,ctx);
@@ -539,14 +539,11 @@ void fs::close(filePtr F,fileHandle H) {
 my_err_t fs::_mkdir(const char * name,my_mode_t mode, const context * ctx) {
 	trackedChange c(this);
 	my_err_t e;
-	auto newFile = mkobject(name,e,ctx);
+	auto newFile = mkobject(name,e,ctx,mode::TYPE_DIR,mode);
 	//CLOG("Gets here with err: ",e);
 	
 	if(!newFile) return e;
-	srvDEBUG("Gets here!");
-	file::setDirMode(newFile,mode);
-	storeInode(newFile);
-	//stats->getI("dirs")++;
+
 	srvDEBUG("mkdir:",name);
 	return EE::ok;
 }
@@ -556,16 +553,13 @@ my_err_t fs::mknod(const char * filename, my_mode_t m, my_dev_t dev, const conte
 	trackedChange c(this);
 	my_err_t e ;
 	//srvMESSAGE("mknod ",filename);
-	auto newFile = mkobject(filename,e,ctx);
-	if(!newFile) {
-		return e;
-	}
 	if ((m&mode::TYPE) == 0) {
 		m |= mode::TYPE_REG;
 	}
-	
-	file::setFileMode(newFile,m,dev);
-	storeInode(newFile);
+	auto newFile = mkobject(filename,e,ctx,m&mode::TYPE,m);
+	if(!newFile) {
+		return e;
+	}
 	auto f = get(filename);
 	if(!f->valid()) {
 		srvDEBUG("Newly created file is not valid????");
@@ -573,7 +567,6 @@ my_err_t fs::mknod(const char * filename, my_mode_t m, my_dev_t dev, const conte
 		srvDEBUG(filename,": ",f->mode());
 	}
 	srvDEBUG("mknod:",filename," mode:",m," type:",m&mode::TYPE," ino:",newFile->as<inode>()->myID);
-	
 	
 	return EE::ok;
 }
@@ -788,9 +781,8 @@ hashPtr fs::zeroHash() {
 my_err_t fs::softlink(const char * linktarget,const char * linkname, const context * ctx) {
 	trackedChange c(this);
 	my_err_t e;
-	auto newFile = mkobject(linkname,e,ctx);
+	auto newFile = mkobject(linkname,e,ctx,mode::TYPE_LNK,0777);
 	if(!newFile) return e;
-	newFile->as<inode>()->mode.setType(mode::TYPE_LNK);
 	e = EE::ok;
 	auto fil = get(linkname,&e);
 	if(e) {

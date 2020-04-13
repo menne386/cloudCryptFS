@@ -50,7 +50,8 @@ namespace filesystem{
 		util::protected_unordered_map<str,bucketIndex_t> pathInodeCache;
 		util::protected_unordered_map<const bucketIndex_t,filePtr> inodeFileCache;
 		std::array<util::atomic_shared_ptr<file>,maxOpenFiles> openHandles;
-		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx);
+		
+		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx,my_mode_t type, my_mode_t mod);
 		
 		
 		
