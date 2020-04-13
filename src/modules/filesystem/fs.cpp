@@ -19,6 +19,7 @@
 #include "bucket.h"
 #include "bucketaccounting.h"
 #include "storage.h"
+#include "journal.h"
 #include <chrono>
 #include <mutex>
 #include <random>
@@ -257,6 +258,7 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 
 
 metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context * ctx) {
+	//@todo: should fix this function to be more journaling friendly (have type parameter for each type of object added).
 	srvDEBUG("mkobject ",filename);
 	str parentname = getParentPath(filename);
 	str childname = getChildPath(filename);
@@ -561,6 +563,7 @@ my_err_t fs::mknod(const char * filename, my_mode_t m, my_dev_t dev, const conte
 	if ((m&mode::TYPE) == 0) {
 		m |= mode::TYPE_REG;
 	}
+	
 	file::setFileMode(newFile,m,dev);
 	storeInode(newFile);
 	auto f = get(filename);
