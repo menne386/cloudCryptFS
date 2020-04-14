@@ -320,7 +320,7 @@ void bucket::store(bool clearCache) {
 }
 
 void bucket::addChange(std::shared_ptr<journalEntry> in) {
-	while(1) {
+	while(in!=nullptr) {
 		std::shared_ptr<bucketChangeLog> H = nullptr;
 		changes.compare_exchange_strong(H,std::make_shared<bucketChangeLog>());
 		H = changes.load();
@@ -332,6 +332,5 @@ void bucket::addChange(std::shared_ptr<journalEntry> in) {
 			store();
 		}
 	}
-	
 }
 

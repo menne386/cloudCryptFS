@@ -43,19 +43,24 @@ void journal::deleteEntry(const journalEntry * entry) {
 }
 
 void journal::tryReplay(void) {
-    for (const auto & entry : std::filesystem::directory_iterator(path.c_str())) { //@todo: make damn sure the entries are in order before replay!
-    	srvWARNING("Journal entry found: ", entry.path().c_str());
-    	str content = util::getSystemString(entry.path().c_str());
-    	if(content.size()>=sizeof(journalEntry)) {
-    		auto entry = reinterpret_cast<const journalEntry *>(content.data());
-    		if(content.size()>= sizeof(journalEntry)+entry->nameLength+entry->dataLength) {
-	    		str name(content.data()+sizeof(journalEntry),entry->nameLength);
-	    		str data(content.data()+sizeof(journalEntry)+entry->nameLength,entry->dataLength);
-	    		
-	    		FS->replayEntry(entry,name,data);
-    		}
-    	}
-    }
+	auto ptr = make_unique<filesystem::context>(); 
+	for (const auto & entry : std::filesystem::directory_iterator(path.c_str())) { //@todo: make damn sure the entries are in order before replay!
+		srvWARNING("Journal entry found: ", entry.path().c_str());
+		str content = util::getSystemString(entry.path().c_str());
+		if(content.size()>=sizeof(journalEntry)) {
+			auto entry = reinterpret_cast<const journalEntry *>(content.data());
+			if(content.size()>= sizeof(journalEntry)+entry->nameLength+entry->dataLength) {
+				
+				str name(content.data()+sizeof(journalEntry),entry->nameLength);
+				str data(content.data()+sizeof(journalEntry)+entry->nameLength,entry->dataLength);
+				
+				auto e = FS->replayEntry(entry,name,data,ptr.get(),nullptr);
+				if(e) {
+					srvERROR("Journal entry replay failed with error: ",e.operator int());
+				}
+			}
+		}
+	}
 }
 
 journal::journal():service("JOURNAL"), nextJournalEntry(0) {

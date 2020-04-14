@@ -284,26 +284,24 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 		return nullptr;
 	}
 	
-	auto newInode = chunk::newChunk(0,nullptr);
-	file::setFileDefaults(newInode,mod|type,ctx);
 	
-	auto ino = newInode->as<inode>()->myID = STOR->metaBuckets->accounting->fetch();
+	auto ino = STOR->metaBuckets->accounting->fetch();
 	
 	auto entry = JOURNAL->add(journalEntryType::mkobject,parent->bucketIdx(),ino,bucketIndex_t(),mod|type,childname);
-	srvDEBUG("trying to add node ",childname," to parent path ",parentname);
-	errorcode = parent->addNode(childname,newInode,false,ctx,entry);
+
+	errorcode = replayEntry(entry.get(),childname,"",ctx,entry);
+	
 	if(errorcode){
 		STOR->metaBuckets->accounting->post(ino);
 		return nullptr;
 	}
-	storeInode(newInode);
 
 	//srvMESSAGE("mkobject 4 ",filename);
 
 	//lckshared lck2(_metadataMutex);
 	//stats->getI("nodes")++;
 
-	return newInode; 
+	return STOR->metaBuckets->getChunk(ino); 
 }
 
 void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
@@ -324,13 +322,34 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 
 }
 
-bool fs::replayEntry(const journalEntry * entry, const str & name, const str & data) {
-	srvMESSAGE("replaying journal entry ",entry->id);
-	
-	
+my_err_t fs::replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,journalEntryPtr je) {
 	//Replay the things that i can do from FS, delegate to FILE if required! :)
+	switch(entry->type) {
+		case journalEntryType::mkobject: {
+			if(je==nullptr) {
+				srvDEBUG("executing journal entry ",entry->id,": ",name, " newIno:",entry->newNode);
+			}
+			auto parent = inodeToFile(entry->parentNode,"",nullptr);
+			_ASSERT(parent->valid());
+			auto newInode = chunk::newChunk(0,nullptr);
+			file::setFileDefaults(newInode,entry->mod,ctx);
+			newInode->as<inode>()->myID = entry->newNode;
+			_ASSERT(entry->newNode);
+			
+			srvDEBUG("trying to add node ",name," to parent path ",parent->getPath());
+			
+			auto status = parent->addNode(name,newInode,false,ctx,je);
+			if(status == EE::ok) {
+				storeInode(newInode);
+			}
+			return status;
+		}break;
+		
+		default:
+			throw std::logic_error("unknown entry in journal");
+	}
 	
-	return false;
+	return EE::invalid_syscall;
 }
 
 

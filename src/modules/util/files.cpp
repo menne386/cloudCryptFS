@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 #include "files.h"
-#include <sys/stat.h>
 #include <fstream>
+#include <filesystem>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -12,20 +12,14 @@
 using namespace util;
 
 bool util::MKDIR(const str & path) {
-#ifndef _WIN32
-	return mkdir(path.c_str(),0777) == 0;
-#else 
-	return _mkdir(path.c_str()) == 0;
-#endif
-	
-
+	return std::filesystem::create_directories(path.c_str()); 
 }
 
 bool util::fileExists(const str & name,size_t * size) {
-	struct stat buffer;
-	if(stat(name.c_str(),&buffer) == 0) {
+	auto stat = std::filesystem::status(name.c_str());	
+	if(std::filesystem::exists(stat)) {
 		if(size) {
-			*size = buffer.st_size;
+			*size = std::filesystem::file_size(name.c_str());
 		}
 		return true;
 	}

@@ -100,7 +100,7 @@ namespace filesystem{
 		void migrate(unique_ptr<crypto::protocolInterface> newProtocol);
 
 
-		bool replayEntry(const journalEntry * entry, const str & name, const str & data);
+		my_err_t replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntry> je);
 		
 		str loadMetaDataFromINode(inode* node);
 		void storeMetaDataInINode(inode * rootNode,const str & input);
