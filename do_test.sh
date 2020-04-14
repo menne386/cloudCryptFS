@@ -96,6 +96,7 @@ echo "running test... $1"
 if [[ "$1" == "crashresistant" ]]; then
 		cp /cloudCryptFS.docker /mnt/crashfile -v
 		kill -9 `pidof cloudCryptFS.docker`
+		cp -rv /srv/journal /output
 		rm -fv /srv/._lock
 		touch /output/crashresistant
 elif [[ "$1" == "create_read" ]]; then
