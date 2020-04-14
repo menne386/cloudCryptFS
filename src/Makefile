@@ -41,7 +41,7 @@ EXTRAFLAGS	:=
 #Flags used when compiling:
 CXXFLAGS	:= $(GENERALCXXFLAGS) -Wl,-fuse-ld=gold
 #Librarys used when linking:
-LIBS 			:= -lfuse -pthread -lsodium 
+LIBS 			:= -lfuse -pthread -lsodium -lstdc++fs 
 
 EXECUTABLE 		:= cloudCryptFS
 DEXECUTABLE 		:= cloudCryptFS.docker
