@@ -38,12 +38,6 @@ int main(int argc, char *argv[]) {
 	
 	auto * args = parseArgs(argc,argv,&conf);
 
-	if(conf.loglevel) {
-		STOR->setLogLevel(std::stoi(conf.loglevel));
-		FS->setLogLevel(std::stoi(conf.loglevel));
-		JOURNAL->setLogLevel(std::stoi(conf.loglevel));
-
-	}
 	
 	if(conf.source) {
 		//CLOG(conf.source);
@@ -57,6 +51,13 @@ int main(int argc, char *argv[]) {
 			exit(EXIT_FAILURE);
 		}
 	} 
+
+	if(conf.loglevel) {
+		STOR->setLogLevel(std::stoi(conf.loglevel));
+		FS->setLogLevel(std::stoi(conf.loglevel));
+		JOURNAL->setLogLevel(std::stoi(conf.loglevel));
+	}
+	
 	
 	
 
