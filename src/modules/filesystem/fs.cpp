@@ -233,6 +233,8 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	//Make sure the zeroHash has a place in a bucket.
 	STOR->buckets->getBucket(rootIndex.bucket())->putHashAndChunk(rootIndex.index(),_zeroHash,zeroChunk);
 	
+	
+	
 	//Load metaBuckets & buckets:
 	STOR->metaBuckets->loadBuckets(metaInfo, "metaBuckets");
 	STOR->buckets->loadBuckets(metaInfo, "buckets");
@@ -246,6 +248,8 @@ bool fs::initFileSystem(unique_ptr<crypto::protocolInterface> iprot,bool mustCre
 	specialfile_error = std::make_shared<file>(chunk::newChunk(0,nullptr),"",pPerm);
 	specialfile_error->setSpecialFile(specialFile::ERROR);
 	_ASSERT(specialfile_error->isSpecial());
+
+	JOURNAL->tryReplay();
 	
 	Fully_up_and_running = true;
 	up_and_running = true;
@@ -287,7 +291,7 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	
 	auto entry = JOURNAL->add(journalEntryType::mkobject,parent->bucketIdx(),ino,bucketIndex_t(),mod|type,childname);
 	srvDEBUG("trying to add node ",childname," to parent path ",parentname);
-	errorcode = parent->addNode(childname,newInode,false,ctx);
+	errorcode = parent->addNode(childname,newInode,false,ctx,entry);
 	if(errorcode){
 		STOR->metaBuckets->accounting->post(ino);
 		return nullptr;
@@ -318,6 +322,15 @@ void fs::migrate(unique_ptr<crypto::protocolInterface> newProtocol) {
 
 	STOR->migrate(std::move(newProtocol));
 
+}
+
+bool fs::replayEntry(const journalEntry * entry, const str & name, const str & data) {
+	srvMESSAGE("replaying journal entry ",entry->id);
+	
+	
+	//Replay the things that i can do from FS, delegate to FILE if required! :)
+	
+	return false;
 }
 
 
@@ -618,7 +631,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 	srvDEBUG("unlink 3 ",filename);
 	
 	
-	auto ret = parent->removeNode(srcChildName,ctx);
+	auto ret = parent->removeNode(srcChildName,ctx,nullptr);
 	if(ret==EE::ok) {
 		//stats->getI("nodes")--;
 		if(f->type()==fileType::DIR) {
@@ -703,18 +716,18 @@ my_err_t fs::renamemove(const char * source,const char * dest, const context * c
 	//srvDEBUG("c");
 	auto node = srcfile->getMetaChunk();
 	//Add the file in the destination:
-	auto error = dstparent->addNode(dstChildName,node,true,ctx);
+	auto error = dstparent->addNode(dstChildName,node,true,ctx,nullptr);
 	if(error==EE::exists) {
 		//srvWARNING("rename is overwriting ",dest);
 		unlink(dest,ctx);
-		error = dstparent->addNode(dstChildName,node,true,ctx);
+		error = dstparent->addNode(dstChildName,node,true,ctx,nullptr);
 	}
 	if(error) {
 		return error;
 	}
 	//srvDEBUG("d");
 	//Remove the old file in the source:
-	error = srcparent->removeNode(srcChildName,ctx);
+	error = srcparent->removeNode(srcChildName,ctx,nullptr);
 	if(error) {
 		return error;
 	}
@@ -825,7 +838,7 @@ my_err_t fs::hardlink(const char * linktarget,const char * linkname, const conte
 		return EE::entity_not_found;
 	}
 	
-	auto e = parent->addNode(childName,target->getMetaChunk(),false,ctx);
+	auto e = parent->addNode(childName,target->getMetaChunk(),false,ctx,nullptr);
 	if(e) {
 		return e;
 	}

@@ -7,6 +7,7 @@
 #include "types.h"
 #include "hash.h"
 #include <atomic>
+#include <set>
 #include "modules/services/serviceHandler.h"
 
 namespace filesystem {
@@ -26,11 +27,10 @@ namespace filesystem {
 		const bucketIndex_t newNode; //The new node
 		const bucketIndex_t newParentNode; // For when moving a node.
 		const my_mode_t mod;
-		char newNodeName[256]; //newNodeName
-		
-		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode, const my_mode_t imod, const str & inewNodeName);
+		const my_size_t nameLength;
+		const my_size_t dataLength;
+		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const str & name="", const str & data="");
 		~journalEntry();
-		
 	};
 	
 	typedef std::shared_ptr<journalEntry> journalEntryPtr;
@@ -40,6 +40,12 @@ namespace filesystem {
 class journal: public service {
 private:
     std::atomic_uint32_t nextJournalEntry;
+    str path;
+    friend class journalEntry;
+    
+    void writeEntry(const journalEntry * entry,const str & name,const str & data);
+    void deleteEntry(const journalEntry * entry);
+    
 public:
     /**
      * Default constructor
@@ -51,12 +57,14 @@ public:
      */
     ~journal();
 		
-		template<class ...Args>
-		journalEntryPtr add(Args... args) {
-			return make_shared<journalEntry>(nextJournalEntry.fetch_add(1),args...);
-		}
+	template<class ...Args>
+	journalEntryPtr add(Args... args) {
+		return make_shared<journalEntry>(nextJournalEntry.fetch_add(10),args...);
+	}
+	
+	void tryReplay(void);
 
-		srvSTATICDEFAULTNEWINSTANCE( journal );
+	srvSTATICDEFAULTNEWINSTANCE( journal );
 };
 
 }

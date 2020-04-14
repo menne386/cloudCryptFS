@@ -297,7 +297,7 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 
 }
 
-my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx) {
+my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx,std::shared_ptr<journalEntry> je) {
 	if(!valid()) {
 		return EE::entity_not_found;
 	}
@@ -319,7 +319,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	
 	FS->srvDEBUG("Adding node ",name," to ",path," ino: ",nodeMeta->as<inode>()->myID, " mode:",nodeMeta->as<inode>()->mode.load());
 	(*directory)[name] = (uint64_t)nodeMeta->as<inode>()->myID;
-	if(!writeDirectoryContent(directory)) {
+	if(!writeDirectoryContent(directory,je)) {
 		return EE::io_error;
 	}
 	INode()->ctime = currentTime();
@@ -327,7 +327,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	
 	return EE::ok;
 }
-my_err_t file::removeNode(const str & name,const context * ctx) {
+my_err_t file::removeNode(const str & name,const context * ctx,std::shared_ptr<journalEntry> je) {
 	if(!valid()) {
 		return EE::entity_not_found;
 	}
@@ -348,7 +348,7 @@ my_err_t file::removeNode(const str & name,const context * ctx) {
 		return EE::entity_not_found;
 	}
 	
-	if(!writeDirectoryContent(directory)) {
+	if(!writeDirectoryContent(directory,je)) {
 		return EE::io_error;
 	}
 	INode()->ctime = currentTime();
@@ -744,7 +744,7 @@ bool file::isFullDir() {
 	return false;
 }
 
-bool file::swapContent(const str & newContent) {
+bool file::swapContent(const str & newContent,std::shared_ptr<journalEntry> je) {
 	if(!valid()) {
 		return false;
 	}
@@ -752,12 +752,15 @@ bool file::swapContent(const str & newContent) {
 	
 	lckunique lck(_mut); //Will replace all content, will need a lock.
 	
+	
+	std::set<uint64_t> affectedBuckets;
 	std::vector<shared_ptr<hash>> newList;
 	size_t offset = 0;
 	while(offset<newContent.size()) {
 		auto newSize=std::min((size_t)chunkSize,(size_t)(newContent.size()-offset));
 		auto newHsh = FS->zeroHash()->write(0,newSize,reinterpret_cast<const uint8_t *>(&newContent[offset]));
 		_ASSERT(newHsh!=nullptr);
+		affectedBuckets.insert(newHsh->getBucketIndex().bucket());
 		newHsh->incRefCnt();
 		newList.push_back(newHsh);
 		offset += newSize;
@@ -773,6 +776,11 @@ bool file::swapContent(const str & newContent) {
 	for(auto & i: newList) {
 		i->decRefCnt();
 	}
+	
+	for(auto b: affectedBuckets) {
+		STOR->buckets->getBucket(b)->addChange(je);
+	}
+	
 	return true;
 }
 
@@ -972,7 +980,7 @@ bool file::readDirectoryContent(script::JSONPtr out) {
 	}
 	return true;
 }
-bool file::writeDirectoryContent (script::JSONPtr in) {
+bool file::writeDirectoryContent (script::JSONPtr in,std::shared_ptr<journalEntry> je) {
 	if(!valid()) {
 		return false;
 	}
@@ -983,7 +991,7 @@ bool file::writeDirectoryContent (script::JSONPtr in) {
 		content.clear();
 	}
 	
-	_ASSERT(swapContent(content)==true);
+	_ASSERT(swapContent(content,je)==true);
 	rest(); 
 	
 	return true;

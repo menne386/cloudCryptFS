@@ -33,6 +33,15 @@ const auto byteSizeChunks = (chunksInBucket * chunkSize);
 const auto byteSizeHashes = (chunksInBucket * sizeof(serializedHash));
 
 
+bool bucketChangeLog::addChange(std::shared_ptr<journalEntry> in) {
+	auto idx = index.fetch_add(1);
+	if(idx<changeLog.size()) {
+		changeLog[idx] = in;
+		return true;
+	}
+	return false;
+}
+
 shared_ptr<bucketArray<hash>> bucket::loadHashes(void) {
 	lckunique lck(_mut);
 	auto OH = hashes.load();
@@ -210,6 +219,10 @@ void bucket::store(bool clearCache) {
 		if(hashChangesSinceLoad==0 && chunkChangesSinceLoad == 0) {
 			return;
 		}
+		
+		std::shared_ptr<bucketChangeLog> CL;
+		CL = changes.exchange(std::shared_ptr<bucketChangeLog>());
+		
 		shared_ptr<bucketArray<chunk>> C;
 		if(clearCache) {
 			C = chunks.exchange(shared_ptr<bucketArray<chunk>>());
@@ -300,7 +313,25 @@ void bucket::store(bool clearCache) {
 			util::replaceIntoSystemString(filename,cipherH,byteSizeChunks+byteSizeEncryptionOverhead);
 		}
 		_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);
+		
 
 		//CLOG("bucket::store_end: ",filename);
 	}
 }
+
+void bucket::addChange(std::shared_ptr<journalEntry> in) {
+	while(1) {
+		std::shared_ptr<bucketChangeLog> H = nullptr;
+		changes.compare_exchange_strong(H,std::make_shared<bucketChangeLog>());
+		H = changes.load();
+		_ASSERT(H!=nullptr);
+		if(H->addChange(in)) {
+			break;
+		} else {
+			STOR->srvWARNING("Too many changes for bucket: ",filename);
+			store();
+		}
+	}
+	
+}
+

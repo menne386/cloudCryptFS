@@ -14,12 +14,23 @@
 
 namespace filesystem {
 	class chunk;
+	class journalEntry;
 	/**
 	 * @todo write docs
 	 */
 	typedef std::function<shared_ptr<chunk>(shared_ptr<chunk>)> loadFilter_t;
 	typedef std::function<shared_ptr<chunk>(shared_ptr<chunk>)> storeFilter_t;
 	template<typename T> using bucketArray = std::array<util::atomic_shared_ptr<T>,chunksInBucket>;
+
+	class bucketChangeLog{
+		private:
+		std::atomic_uint index;
+		std::array<std::shared_ptr<journalEntry>,1024> changeLog;
+		public:
+		bucketChangeLog(): index(0) {}
+		
+		bool addChange(std::shared_ptr<journalEntry> in);
+	};
 
 	class bucket {
 		
@@ -30,6 +41,7 @@ namespace filesystem {
 		locktype _mut;
 		util::atomic_shared_ptr<bucketArray<chunk>> chunks;
 		util::atomic_shared_ptr<bucketArray<hash>> hashes;
+		util::atomic_shared_ptr<bucketChangeLog> changes;
 		
 		str filename;
 		std::shared_ptr<crypto::key> _key;
@@ -64,6 +76,8 @@ namespace filesystem {
 		void putHashedChunk(bucketIndex_t idx,const script::int_t irefcnt,std::shared_ptr<chunk> c);
 		
 		void store(bool clearCache = false);
+		
+		void addChange(std::shared_ptr<journalEntry> in);
 	};
 
 }
