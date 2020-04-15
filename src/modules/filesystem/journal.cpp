@@ -69,8 +69,10 @@ void journal::tryReplay(void) {
 		items[std::stoul(entry.path().filename())] = entry.path();
 	}
 	//Items should be a sorted list of journal items. @todo: when the id wraps around this could cause problems.
+	if(items.empty()==false) {
+		srvWARNING(items.size()," journal entries found. Replaying...");
+	}
 	for(auto & i: items) {
-		srvWARNING("Journal entry found: ", i.second.c_str());
 		str content = util::getSystemString(i.second.c_str());
 		if(content.size()>=sizeof(journalEntry)) {
 			auto entry = reinterpret_cast<const journalEntry *>(content.data());
@@ -81,13 +83,18 @@ void journal::tryReplay(void) {
 				
 				auto e = FS->replayEntry(entry,name,data,ptr.get(),nullptr);
 				if(e) {
-					srvERROR("Journal entry replay failed with error: ",e.operator int());
+					srvERROR("Journal entry ",i.first," replay failed with error: ",e.operator int());
+				} else {
+					srvMESSAGE("Replayed journal entry ",i.first);
+					std::filesystem::remove(i.second);
 				}
 			}
 		} else {
 				srvERROR("Journal entry failed to load: ",i.first);
 		}
 	}
+	
+	
 }
 
 journal::journal():service("JOURNAL"), nextJournalEntry(0) {

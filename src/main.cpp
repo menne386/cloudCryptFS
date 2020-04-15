@@ -54,16 +54,17 @@ int main(int argc, char *argv[]) {
 
 	if(conf.loglevel) {
 		STOR->setLogLevel(std::stoi(conf.loglevel));
-		FS->setLogLevel(std::stoi(conf.loglevel));
 		JOURNAL->setLogLevel(std::stoi(conf.loglevel));
+		FS->setLogLevel(std::stoi(conf.loglevel));
 	}
 	
 	
 	
 
 	g_LogFile = STOR->getPath()+"log.txt";
-	CLOG("Source path: ", STOR->getPath());
-	CLOG("LogFile: ",g_LogFile);
+	STOR->srvMESSAGE("started with source path: ", STOR->getPath(), " log:",g_LogFile);
+	JOURNAL->srvMESSAGE("started");
+	FS->srvMESSAGE("started");
 	
 
 	

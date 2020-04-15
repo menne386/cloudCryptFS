@@ -1037,6 +1037,9 @@ my_err_t file::replayEntry(const journalEntry * entry, const str & name, const s
 	if(!valid())return EE::entity_not_found;
 	
 	switch(entry->type) {
+		case journalEntryType::write:
+			return writeInner(_STRTOBYTESIZE(data),entry->offset,nullptr) == (my_off_t)entry->dataLength ? EE::ok : EE::io_error;
+			break;
 		default:
 			return EE::invalid_syscall;
 	}
