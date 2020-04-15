@@ -64,6 +64,7 @@ namespace filesystem{
 		void loadHashes(void);
 		bool validate_ownership(const context * ctx,my_mode_t newMode);
 		inode * INode() const {return metaChunk->as<inode>();} 
+		my_off_t writeInner(const unsigned char * buf,my_size_t size,const my_off_t offset,shared_ptr<journalEntry> je);
 	public:
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
@@ -133,6 +134,8 @@ namespace filesystem{
 		
 		void open(void); //Open a handle to the file.
 		bool close(void); //Close a handle to the file.
+		
+		my_err_t replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntry> je);
 		
 		static void setFileDefaults(std::shared_ptr<chunk> meta,my_mode_t mod,const context * ctx=nullptr) ;
 		//static void setDirMode(std::shared_ptr<chunk> meta,my_mode_t mode) ;

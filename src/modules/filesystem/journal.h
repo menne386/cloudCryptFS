@@ -27,9 +27,10 @@ namespace filesystem {
 		const bucketIndex_t newNode; //The new node
 		const bucketIndex_t newParentNode; // For when moving a node.
 		const my_mode_t mod;
+		const my_off_t offset;
 		const my_size_t nameLength;
 		const my_size_t dataLength;
-		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const str & name="", const str & data="");
+		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const my_off_t ioffset, const str & name="", const str & data="");
 		~journalEntry();
 	};
 	

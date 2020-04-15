@@ -287,7 +287,7 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	
 	auto ino = STOR->metaBuckets->accounting->fetch();
 	
-	auto entry = JOURNAL->add(journalEntryType::mkobject,parent->bucketIdx(),ino,bucketIndex_t(),mod|type,childname);
+	auto entry = JOURNAL->add(journalEntryType::mkobject,parent->bucketIdx(),ino,bucketIndex_t(),mod|type,0,childname);
 
 	errorcode = replayEntry(entry.get(),childname,"",ctx,entry);
 	
@@ -345,8 +345,10 @@ my_err_t fs::replayEntry(const journalEntry * entry, const str & name, const str
 			return status;
 		}break;
 		
-		default:
-			throw std::logic_error("unknown entry in journal");
+		default:{
+			auto F = inodeToFile(entry->newNode,"",nullptr);
+			return F->replayEntry(entry,name,data,ctx,je);
+		}break;
 	}
 	
 	return EE::invalid_syscall;

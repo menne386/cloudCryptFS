@@ -12,8 +12,27 @@
 using namespace filesystem;
 
 
-journalEntry::journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const str & name, const str & data) 
-	: id(iid), type(itype), parentNode(iparentNode), newNode(inewNode), newParentNode(inewParentNode),mod(imod),nameLength(name.size()),dataLength(data.size()) {
+journalEntry::journalEntry(
+	const uint32_t iid,
+	const journalEntryType itype, 
+	const bucketIndex_t iparentNode,
+	const bucketIndex_t inewNode,
+	const bucketIndex_t inewParentNode,
+	const my_mode_t imod,
+	const my_off_t ioffset, 
+	const str & name, 
+	const str & data
+) : 
+	id(iid), 
+	type(itype), 
+	parentNode(iparentNode), 
+	newNode(inewNode), 
+	newParentNode(inewParentNode),
+	mod(imod),
+	offset(ioffset),
+	nameLength(name.size()),
+	dataLength(data.size())
+	{
 	JOURNAL->writeEntry(this,name,data);
 }
 
@@ -44,9 +63,15 @@ void journal::deleteEntry(const journalEntry * entry) {
 
 void journal::tryReplay(void) {
 	auto ptr = make_unique<filesystem::context>(); 
-	for (const auto & entry : std::filesystem::directory_iterator(path.c_str())) { //@todo: make damn sure the entries are in order before replay!
-		srvWARNING("Journal entry found: ", entry.path().c_str());
-		str content = util::getSystemString(entry.path().c_str());
+	//make damn sure the entries are in order before replay!
+	std::map<uint64_t,std::filesystem::path> items;
+	for (const auto & entry : std::filesystem::directory_iterator(path.c_str())) { 
+		items[std::stoul(entry.path().filename())] = entry.path();
+	}
+	//Items should be a sorted list of journal items. @todo: when the id wraps around this could cause problems.
+	for(auto & i: items) {
+		srvWARNING("Journal entry found: ", i.second.c_str());
+		str content = util::getSystemString(i.second.c_str());
 		if(content.size()>=sizeof(journalEntry)) {
 			auto entry = reinterpret_cast<const journalEntry *>(content.data());
 			if(content.size()>= sizeof(journalEntry)+entry->nameLength+entry->dataLength) {
@@ -59,6 +84,8 @@ void journal::tryReplay(void) {
 					srvERROR("Journal entry replay failed with error: ",e.operator int());
 				}
 			}
+		} else {
+				srvERROR("Journal entry failed to load: ",i.first);
 		}
 	}
 }

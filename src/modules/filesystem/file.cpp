@@ -10,6 +10,7 @@
 #include "file.h"
 #include "fs.h"
 #include "storage.h"
+#include "journal.h"
 #include "hash.h"
 #include "chunk.h"
 #include "bucket.h"
@@ -612,7 +613,17 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 	if(!valid()) {
 		return 0;
 	}
-	if(_type!=specialFile::REGULAR) return 0;
+	if(_type!=specialFile::REGULAR) return 0;	
+	
+	const str dta(reinterpret_cast<const char *>(buf),size);
+	
+	auto je = JOURNAL->add(journalEntryType::write,bucketIndex_t(),INode()->myID,bucketIndex_t(),0,offset,"",dta);
+	
+	return writeInner(buf,size,offset,je);
+}
+
+my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off_t offset,shared_ptr<journalEntry> je) {
+
 	//CLOG("t_file::write: ",path," ",size," ",offset);
 
 	FS->_writeStats.at(fs::classifySize(size))++;
@@ -653,6 +664,7 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 		
 		auto hashes = hashList.getRange(firstHash,numHashesInWrite);
 		std::vector<shared_ptr<hash>> hashesToRemoveFromFile;
+		std::set<uint64_t> bucketsAffected;
 		for (auto & writeHash: hashes) {
 			_ASSERT(writeHash!=nullptr);
 			if(offset < myFileOffset+ chunkSize && size > 0) {
@@ -665,6 +677,8 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 				if(newHsh) {
 					hashesToRemoveFromFile.push_back(writeHash);
 					newHsh->incRefCnt();
+					bucketsAffected.insert(newHsh->getBucketIndex().bucket());
+					bucketsAffected.insert(writeHash->getBucketIndex().bucket());
 					writeHash = newHsh;
 				}
 				//_ASSERT(writeHash->getRefCnt()>0);
@@ -678,6 +692,9 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 			_ASSERT(hashList.updateRange(firstHash,hashes)==true); //Update the hashes in this write with the new versions
 			for(auto i: hashesToRemoveFromFile) {
 				i->decRefCnt();
+			}
+			for(auto i:bucketsAffected) { //Store a reference to the journalEntry in the affected buckets
+				STOR->buckets->getBucket(i)->addChange(je);
 			}
 		}
 		INode()->mtime = currentTime();
@@ -1014,6 +1031,17 @@ bool file::close(void) {
 	}
 	return false;
 }
+
+
+my_err_t file::replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntry> je) {
+	if(!valid())return EE::entity_not_found;
+	
+	switch(entry->type) {
+		default:
+			return EE::invalid_syscall;
+	}
+}
+
 
 void file::setFileDefaults(std::shared_ptr<chunk> meta,my_mode_t mod,const context * ctx) {
 
