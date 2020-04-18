@@ -14,7 +14,6 @@ namespace util {
 	bool fileExists(const str & name, size_t * size=nullptr);
 	str getSystemString(const str & path, uint64_t offset = 0);
 	bool putSystemString(const str & path,const str & content);
-	bool replaceIntoSystemString(const str & path,const str & content,uint64_t offset = 0);
 
 }
 

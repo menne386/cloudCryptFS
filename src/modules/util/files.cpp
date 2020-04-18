@@ -49,23 +49,18 @@ str util::getSystemString(const str & fname,uint64_t offset) {
 
 bool util::putSystemString(const str & fname, const str & content) {
 	std::ofstream F;
-	if(openfile(F, fname, std::ios::binary|std::ios::out)) {
-		F.write(content.data(),content.size());
-		return true;
-	} 
-	CLOG("Failed to write to file ",fname);
-	return false;
-}
-bool util::replaceIntoSystemString(const str & path,const str & content,uint64_t offset) {
-	std::fstream F;
-	if(openfile(F, path, std::ios::binary|std::ios::out|std::ios::in)) {
-		if(offset) {
-			F.seekp(offset);
-			_ASSERT((uint64_t)F.tellp()==offset);
+	const str fnametemp = fname+"~";
+	try{
+		if(openfile(F, fnametemp, std::ios::binary|std::ios::out)) {
+			F.write(content.data(),content.size());
+			F.close();
+			std::filesystem::rename(fnametemp,fname);
+			return true;
+		} else {
+			CLOG("Failed to open file ",fnametemp, " for writing" );
 		}
-		F.write(content.data(),content.size());
-		return true;
-	} 
-	CLOG("Failed to replace into file ",path);
+	} catch(std::exception & e) {
+		CLOG("Failed to write file ",fname, " error: ",e.what());
+	}
 	return false;
 }
