@@ -309,10 +309,10 @@ void bucket::store(bool clearCache) {
 		
 		if(cipher.empty()==false) {
 			STOR->srvDEBUG("Storing chunks in: ",filenamechnk);
-			util::putSystemString(filenamechnk,cipher);
+			_ASSERT(util::putSystemString(filenamechnk,cipher)==true);
 		}
 		STOR->srvDEBUG("Storing hashes in: ",filenamehsh);
-		util::putSystemString(filenamehsh,cipherH);
+		_ASSERT(util::putSystemString(filenamehsh,cipherH)==true);
 
 	}
 }
