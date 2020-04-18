@@ -297,22 +297,25 @@ void bucket::store(bool clearCache) {
 			}
 			hptr++;
 		}
-		
-		try{
-			_protocol->encrypt(_key,cleartextH,cipherH);
-		} catch(std::exception & e) {
-			throw std::logic_error(BUILDSTRING("Failed to encrypt hashes (",e.what(),") ",filenamehsh).c_str());
-		}	
-		
-		_ASSERT(cipherH.empty()==false);
-		_ASSERT(cipherH.size()==byteSizeHashes+byteSizeEncryptionOverhead);
-		
-		if(cipher.empty()==false) {
-			STOR->srvDEBUG("Storing chunks in: ",filenamechnk);
-			_ASSERT(util::putSystemString(filenamechnk,cipher)==true);
+		if(num > 0) {
+			try{
+				_protocol->encrypt(_key,cleartextH,cipherH);
+			} catch(std::exception & e) {
+				throw std::logic_error(BUILDSTRING("Failed to encrypt hashes (",e.what(),") ",filenamehsh).c_str());
+			}	
+			
+			_ASSERT(cipherH.empty()==false);
+			_ASSERT(cipherH.size()==byteSizeHashes+byteSizeEncryptionOverhead);
+			
+			if(cipher.empty()==false) {
+				STOR->srvDEBUG("Storing chunks in: ",filenamechnk);
+				_ASSERT(util::putSystemString(filenamechnk,cipher)==true);
+			}
+			STOR->srvDEBUG("Storing hashes in: ",filenamehsh);
+			_ASSERT(util::putSystemString(filenamehsh,cipherH)==true);
+		} else {
+			STOR->srvWARNING("No hashes to store, not writing ",filenamehsh," have chunks?",cipher.empty()==false);
 		}
-		STOR->srvDEBUG("Storing hashes in: ",filenamehsh);
-		_ASSERT(util::putSystemString(filenamehsh,cipherH)==true);
 
 	}
 }
