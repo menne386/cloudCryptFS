@@ -11,11 +11,13 @@
 #include "chunk.h"
 #include "main.h"
 #include <mutex>
+#include <filesystem>
 
 #include "modules/crypto/protocol.h"
 #include "modules/util/files.h"
 #include "modules/util/endian.h"
 #include "storage.h"
+
 
 using namespace filesystem;
 
@@ -49,19 +51,19 @@ shared_ptr<bucketArray<hash>> bucket::loadHashes(void) {
 		return OH;
 	}
 	auto H = std::make_shared<bucketArray<hash>>();
+	const str filenamehsh = myfilenamehsh();
+	//const str filenamechnk = myfilenamechnk();
 	
-	const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
-	auto cipher = util::getSystemString(filename,byteSizeChunks+byteSizeEncryptionOverhead);
+	auto cipher = util::getSystemString(filenamehsh);
 	if(cipher.empty()==false) {
-		_ASSERT(cipher.size()==byteSizeHashes+byteSizeEncryptionOverhead);
 		str cleartext;
 		try{
 			_protocol->decrypt(_key,cipher,cleartext);
 		} catch(std::exception & e) {
-			throw std::logic_error(BUILDSTRING("Failed to decrypt hashes (",e.what(),") ",filename).c_str());
+			throw std::logic_error(BUILDSTRING("Failed to decrypt hashes (",e.what(),") ",filenamehsh).c_str());
 		}
 		if(cleartext.size()!=byteSizeHashes) {
-			throw std::out_of_range(str("failed to load hashes from "+filename).c_str());
+			throw std::out_of_range(str("failed to load hashes from "+filenamehsh).c_str());
 		}
 		//load the chunks from the cleartext:
 		auto * ptr = reinterpret_cast<const serializedHash*>(cleartext.data());
@@ -90,23 +92,21 @@ shared_ptr<bucketArray<chunk>> bucket::loadChunks(void) {
 	}
 	chunk base;
 
+	//const str filenamehsh = myfilenamehsh();
+	const str filenamechnk = myfilenamechnk();
 	auto C = std::make_shared<bucketArray<chunk>>();
-	auto cipher = util::getSystemString(filename);
+	auto cipher = util::getSystemString(filenamechnk);
 	if(cipher.empty()==false) {
 		//CLOG("bucket::loadChunks: ",filename);
-		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
-		const auto byteSizeEncryptedContent = byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead;
-		_ASSERT(cipher.size()==byteSizeEncryptedContent);
-		cipher.resize(byteSizeChunks+byteSizeEncryptionOverhead);
 		str cleartext;
 		try{
 			_protocol->decrypt(_key,cipher,cleartext);
 		} catch(std::exception & e) {
-			util::putSystemString(STOR->getPath()+"decrypt_fail",util::getSystemString(filename));
-			throw std::logic_error(BUILDSTRING("Failed to decrypt chunks (",e.what(),") ",filename).c_str());
+			util::putSystemString(STOR->getPath()+"decrypt_fail",util::getSystemString(filenamechnk));
+			throw std::logic_error(BUILDSTRING("Failed to decrypt chunks (",e.what(),") ",filenamechnk).c_str());
 		}	
 		if(cleartext.size()!=byteSizeChunks) {
-			throw std::out_of_range(str("failed to load chunks from "+filename).c_str());
+			throw std::out_of_range(str("failed to load chunks from "+filenamechnk).c_str());
 		}
 		//load the chunks from the cleartext:
 		auto * ptr = reinterpret_cast<const uint8_t*>(cleartext.data());
@@ -134,7 +134,7 @@ shared_ptr<bucketArray<chunk>> bucket::loadChunks(void) {
 	chunks = C;
 	return C;
 }
-bucket::bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protocolInterface * iprotocol) :filename(file), _key(ikey), _protocol(iprotocol){
+bucket::bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protocolInterface * iprotocol) :filenamebase(file), _key(ikey), _protocol(iprotocol){
 	chunkChangesSinceLoad = 0;
 	hashChangesSinceLoad = 0;
 }
@@ -151,8 +151,10 @@ void filesystem::bucket::del(void) {
 	lckunique lck(_mut);
 	chunks = std::shared_ptr<bucketArray<chunk>>();
 	hashes = std::shared_ptr<bucketArray<hash>>();
-
-	remove(filename.c_str());
+	const str filenamehsh = myfilenamehsh();
+	const str filenamechnk = myfilenamechnk();
+	std::filesystem::remove(filenamehsh.c_str());
+	std::filesystem::remove(filenamechnk.c_str());
 	//CLOG("bucket::del: ", filename);
 }
 
@@ -220,6 +222,9 @@ void bucket::store(bool clearCache) {
 			return;
 		}
 		
+		const str filenamehsh = myfilenamehsh();
+		const str filenamechnk = myfilenamechnk();
+		
 		std::shared_ptr<bucketChangeLog> CL;
 		CL = changes.exchange(std::shared_ptr<bucketChangeLog>());
 		
@@ -234,9 +239,7 @@ void bucket::store(bool clearCache) {
 		chunkChangesSinceLoad = 0;
 		const bool haveChunks = C!=nullptr;
 		const auto byteSizeEncryptionOverhead = _protocol->getIVSize()+_protocol->getTagSize();
-		const auto byteSizeEncryptedContent = byteSizeChunks+byteSizeEncryptionOverhead+byteSizeHashes+byteSizeEncryptionOverhead;
 		crypto::sha256sum emptyHsh(nullptr,0);
-		//CLOG("bucket::store: ",filename);
 		str cleartext,cleartextH,cipher,cipherH;
 		
 		cleartext.resize(byteSizeChunks);
@@ -248,7 +251,7 @@ void bucket::store(bool clearCache) {
 		_ASSERT(H!=nullptr);
 		
 		//
-		if(haveChunks || util::fileExists(filename)==false) {
+		if(haveChunks || util::fileExists(filenamechnk)==false) {
 			if(haveChunks) {
 				auto * ptr = reinterpret_cast<uint8_t*>(&cleartext[0]);
 				for(auto & L: *C) {
@@ -265,13 +268,13 @@ void bucket::store(bool clearCache) {
 					ptr+=chunkSize;
 				} 
 			} else {
-				STOR->srvWARNING("Writing hashes without chunks to: ",filename);					
+				STOR->srvWARNING("Writing hashes without chunks to: ",filenamehsh);					
 			}
 
 			try{
 				_protocol->encrypt(_key,cleartext,cipher);
 			} catch(std::exception & e) {
-				throw std::logic_error(BUILDSTRING("Failed to encrypt chunks (",e.what(),") ",filename).c_str());
+				throw std::logic_error(BUILDSTRING("Failed to encrypt chunks (",e.what(),") ",filenamechnk).c_str());
 			}	
 			_ASSERT(cipher.empty()==false);
 			_ASSERT(cipher.size()==byteSizeChunks+byteSizeEncryptionOverhead);
@@ -298,24 +301,19 @@ void bucket::store(bool clearCache) {
 		try{
 			_protocol->encrypt(_key,cleartextH,cipherH);
 		} catch(std::exception & e) {
-			throw std::logic_error(BUILDSTRING("Failed to encrypt hashes (",e.what(),") ",filename).c_str());
+			throw std::logic_error(BUILDSTRING("Failed to encrypt hashes (",e.what(),") ",filenamehsh).c_str());
 		}	
 		
 		_ASSERT(cipherH.empty()==false);
 		_ASSERT(cipherH.size()==byteSizeHashes+byteSizeEncryptionOverhead);
 		
-		size_t S = 0;
 		if(cipher.empty()==false) {
-			STOR->srvDEBUG("Storing chunks&hashes in: ",filename);
-			util::putSystemString(filename,cipher+cipherH);
-		} else {
-			STOR->srvDEBUG("Overwriting hashes in: ",filename);
-			util::replaceIntoSystemString(filename,cipherH,byteSizeChunks+byteSizeEncryptionOverhead);
+			STOR->srvDEBUG("Storing chunks in: ",filenamechnk);
+			util::putSystemString(filenamechnk,cipher);
 		}
-		_ASSERT(util::fileExists(filename,&S) && S == byteSizeEncryptedContent);
-		
+		STOR->srvDEBUG("Storing hashes in: ",filenamehsh);
+		util::putSystemString(filenamehsh,cipherH);
 
-		//CLOG("bucket::store_end: ",filename);
 	}
 }
 
@@ -328,7 +326,7 @@ void bucket::addChange(std::shared_ptr<journalEntry> in) {
 		if(H->addChange(in)) {
 			break;
 		} else {
-			STOR->srvWARNING("Too many changes for bucket: ",filename);
+			STOR->srvWARNING("Too many changes for bucket: ",filenamebase);
 			store();
 		}
 	}

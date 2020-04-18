@@ -204,6 +204,8 @@ fi
 touch /srv/decrypt_fail
 cp /srv/decrypt_fail $OUTPUT
 
+find /srv > "$OUTPUT/find.txt"
+
 #grep "ERROR" /srv/log.txt
 #grep "WARNING" /srv/log.txt
 

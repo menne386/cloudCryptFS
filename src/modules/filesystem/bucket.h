@@ -43,7 +43,10 @@ namespace filesystem {
 		util::atomic_shared_ptr<bucketArray<hash>> hashes;
 		util::atomic_shared_ptr<bucketChangeLog> changes;
 		
-		str filename;
+		const str filenamebase;
+		const str myfilenamehsh() const {return filenamebase+".hsh"; }
+		const str myfilenamechnk() const {return filenamebase+".chnk"; }
+		
 		std::shared_ptr<crypto::key> _key;
 		crypto::protocolInterface * _protocol;
 		shared_ptr<bucketArray<chunk>> loadChunks(void);
@@ -56,7 +59,6 @@ namespace filesystem {
 		bucket(const str & file,std::shared_ptr<crypto::key> ikey,crypto::protocolInterface * iprotocol);
 		~bucket();
 		
-		str getFilename() {return filename;};
 		
 		void setLoadFilter(loadFilter_t in) { loadFilter = in; };
 		void setStoreFilter(storeFilter_t in) { storeFilter = in; };
