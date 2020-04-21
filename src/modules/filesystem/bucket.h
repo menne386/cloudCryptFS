@@ -14,7 +14,7 @@
 
 namespace filesystem {
 	class chunk;
-	class journalEntry;
+	class journalEntryWrapper;
 	/**
 	 * @todo write docs
 	 */
@@ -25,11 +25,11 @@ namespace filesystem {
 	class bucketChangeLog{
 		private:
 		std::atomic_uint index;
-		std::array<std::shared_ptr<journalEntry>,1024> changeLog;
+		std::array<std::shared_ptr<journalEntryWrapper>,1024> changeLog;
 		public:
 		bucketChangeLog(): index(0) {}
 		
-		bool addChange(std::shared_ptr<journalEntry> in);
+		bool addChange(std::shared_ptr<journalEntryWrapper> in);
 	};
 
 	class bucket {
@@ -79,7 +79,7 @@ namespace filesystem {
 		
 		void store(bool clearCache = false);
 		
-		void addChange(std::shared_ptr<journalEntry> in);
+		void addChange(std::shared_ptr<journalEntryWrapper> in);
 	};
 
 }

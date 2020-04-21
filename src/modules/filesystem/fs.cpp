@@ -289,7 +289,7 @@ metaPtr fs::mkobject(const char * filename, my_err_t & errorcode,const context *
 	
 	auto entry = JOURNAL->add(journalEntryType::mkobject,parent->bucketIdx(),ino,bucketIndex_t(),mod|type,0,childname);
 
-	errorcode = replayEntry(entry.get(),childname,"",ctx,entry);
+	errorcode = replayEntry(entry->entry(),childname,"",ctx,entry);
 	
 	if(errorcode){
 		STOR->metaBuckets->accounting->post(ino);

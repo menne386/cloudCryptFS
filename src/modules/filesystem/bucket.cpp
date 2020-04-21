@@ -35,7 +35,7 @@ const auto byteSizeChunks = (chunksInBucket * chunkSize);
 const auto byteSizeHashes = (chunksInBucket * sizeof(serializedHash));
 
 
-bool bucketChangeLog::addChange(std::shared_ptr<journalEntry> in) {
+bool bucketChangeLog::addChange(std::shared_ptr<journalEntryWrapper> in) {
 	auto idx = index.fetch_add(1);
 	if(idx<changeLog.size()) {
 		changeLog[idx] = in;
@@ -320,7 +320,7 @@ void bucket::store(bool clearCache) {
 	}
 }
 
-void bucket::addChange(std::shared_ptr<journalEntry> in) {
+void bucket::addChange(std::shared_ptr<journalEntryWrapper> in) {
 	while(in!=nullptr) {
 		std::shared_ptr<bucketChangeLog> H = nullptr;
 		changes.compare_exchange_strong(H,std::make_shared<bucketChangeLog>());

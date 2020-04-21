@@ -298,7 +298,7 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 
 }
 
-my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx,std::shared_ptr<journalEntry> je) {
+my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx,std::shared_ptr<journalEntryWrapper> je) {
 	if(!valid()) {
 		return EE::entity_not_found;
 	}
@@ -328,7 +328,7 @@ my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,co
 	
 	return EE::ok;
 }
-my_err_t file::removeNode(const str & name,const context * ctx,std::shared_ptr<journalEntry> je) {
+my_err_t file::removeNode(const str & name,const context * ctx,std::shared_ptr<journalEntryWrapper> je) {
 	if(!valid()) {
 		return EE::entity_not_found;
 	}
@@ -617,12 +617,12 @@ my_off_t file::write(const unsigned char * buf,my_size_t size, const my_off_t of
 	
 	const str dta(reinterpret_cast<const char *>(buf),size);
 	
-	auto je = JOURNAL->add(journalEntryType::write,bucketIndex_t(),INode()->myID,bucketIndex_t(),0,offset,"",dta);
+	auto je = JOURNAL->add(journalEntryType::write,bucketIndex_t(),INode()->myID,bucketIndex_t(),0u,offset,"",dta);
 	
 	return writeInner(buf,size,offset,je);
 }
 
-my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off_t offset,shared_ptr<journalEntry> je) {
+my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off_t offset,shared_ptr<journalEntryWrapper> je) {
 
 	//CLOG("t_file::write: ",path," ",size," ",offset);
 
@@ -761,7 +761,7 @@ bool file::isFullDir() {
 	return false;
 }
 
-bool file::swapContent(const str & newContent,std::shared_ptr<journalEntry> je) {
+bool file::swapContent(const str & newContent,std::shared_ptr<journalEntryWrapper> je) {
 	if(!valid()) {
 		return false;
 	}
@@ -997,7 +997,7 @@ bool file::readDirectoryContent(script::JSONPtr out) {
 	}
 	return true;
 }
-bool file::writeDirectoryContent (script::JSONPtr in,std::shared_ptr<journalEntry> je) {
+bool file::writeDirectoryContent (script::JSONPtr in,std::shared_ptr<journalEntryWrapper> je) {
 	if(!valid()) {
 		return false;
 	}
@@ -1033,7 +1033,7 @@ bool file::close(void) {
 }
 
 
-my_err_t file::replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntry> je) {
+my_err_t file::replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntryWrapper> je) {
 	if(!valid())return EE::entity_not_found;
 	
 	switch(entry->type) {

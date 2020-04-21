@@ -20,6 +20,7 @@ namespace filesystem{
 	class fs;
 	class hash;
 	class journalEntry;
+	class journalEntryWrapper;
 	
 	typedef std::shared_ptr<file> filePtr;
 	
@@ -64,7 +65,7 @@ namespace filesystem{
 		void loadHashes(void);
 		bool validate_ownership(const context * ctx,my_mode_t newMode);
 		inode * INode() const {return metaChunk->as<inode>();} 
-		my_off_t writeInner(const unsigned char * buf,my_size_t size,const my_off_t offset,shared_ptr<journalEntry> je);
+		my_off_t writeInner(const unsigned char * buf,my_size_t size,const my_off_t offset,shared_ptr<journalEntryWrapper> je);
 	public:
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
@@ -77,7 +78,7 @@ namespace filesystem{
 		std::shared_ptr<chunk> getMetaChunk() {return metaChunk;}
 
 		bool readDirectoryContent(script::JSONPtr out);
-		bool writeDirectoryContent(script::JSONPtr in,std::shared_ptr<journalEntry> je);
+		bool writeDirectoryContent(script::JSONPtr in,std::shared_ptr<journalEntryWrapper> je);
 		
 		std::vector<bucketIndex_t> setDeletedAndReturnAllUsedInodes();
 		void storeMetaProperties(void);
@@ -111,8 +112,8 @@ namespace filesystem{
 		my_err_t chmod(my_mode_t mode, const context * ctx);
 		my_err_t chown(my_uid_t uid, my_gid_t gid, const context * ctx);
 		
-		my_err_t addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx,std::shared_ptr<journalEntry> je);
-		my_err_t removeNode(const str & name,const context * ctx,std::shared_ptr<journalEntry> je);
+		my_err_t addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx,std::shared_ptr<journalEntryWrapper> je);
+		my_err_t removeNode(const str & name,const context * ctx,std::shared_ptr<journalEntryWrapper> je);
 		my_err_t hasNode(const str & name,const context * ctx,bucketIndex_t * id=nullptr);
 		
 		bool setTimes(const timeHolder tv[2]);
@@ -123,7 +124,7 @@ namespace filesystem{
 		
 		//void loadStat(myStat * stbuf);
 
-		bool swapContent(const str & newContent,std::shared_ptr<journalEntry> je);
+		bool swapContent(const str & newContent,std::shared_ptr<journalEntryWrapper> je);
 		
 		void loadStat(fileType * T,my_mode_t * M,my_off_t * S,my_gid_t * G,my_uid_t * U,timeHolder * at,timeHolder * mt,timeHolder * ct, my_ino_t * in);
 		my_err_t truncate(my_off_t newSize);
@@ -135,7 +136,7 @@ namespace filesystem{
 		void open(void); //Open a handle to the file.
 		bool close(void); //Close a handle to the file.
 		
-		my_err_t replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntry> je);
+		my_err_t replayEntry(const journalEntry * entry, const str & name, const str & data,const context * ctx,shared_ptr<journalEntryWrapper> je);
 		
 		static void setFileDefaults(std::shared_ptr<chunk> meta,my_mode_t mod,const context * ctx=nullptr) ;
 		//static void setDirMode(std::shared_ptr<chunk> meta,my_mode_t mode) ;

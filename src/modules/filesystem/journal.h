@@ -16,8 +16,13 @@ namespace filesystem {
 	using services::service;
 
 	enum class journalEntryType : uint32_t {
-		mkobject=0x02,write=0x03,unlink=0x04
+		close=0x10,
+		mkobject=0x20,
+		write=0x30,
+		unlink=0x40
 	};
+	class journalFile;
+	
 	
 	class journalEntry{
 	public:
@@ -30,11 +35,45 @@ namespace filesystem {
 		const my_off_t offset;
 		const my_size_t nameLength;
 		const my_size_t dataLength;
-		journalEntry(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const my_off_t ioffset, const str & name="", const str & data="");
-		~journalEntry();
+		
 	};
 	
-	typedef std::shared_ptr<journalEntry> journalEntryPtr;
+	class journalEntryWrapper{
+		private:
+		friend class journal;
+	    const journalEntry inner;
+	    shared_ptr<journalFile> file;
+		public:
+		
+		const journalEntry * entry() { return &inner; }
+
+		journalEntryWrapper(const uint32_t iid,const journalEntryType itype, const bucketIndex_t iparentNode,const bucketIndex_t inewNode,const bucketIndex_t inewParentNode,const my_mode_t imod, const my_off_t ioffset, const str & name="", const str & data="");
+		~journalEntryWrapper();		
+	};
+	
+	typedef std::shared_ptr<journalEntryWrapper> journalEntryPtr;
+	
+	
+	class journalFileImpl;
+	class journalFile{
+		private:
+		const size_t id;
+		const str filename;
+		unsigned entries;
+		unique_ptr<journalFileImpl> impl;
+		public:
+		
+		journalFile(size_t iid,const str & ifilename);
+		~journalFile();
+
+		size_t getId() const {return id; }
+		unsigned getEntries() { return entries; }
+		
+	    void writeEntry(const journalEntry * entry,const str & name,const str & data);
+	    void deleteEntry(const journalEntry * entry);
+		
+		
+	};
 	
 /**
  */
@@ -42,10 +81,12 @@ class journal: public service {
 private:
     std::atomic_uint32_t nextJournalEntry;
     str path;
-    friend class journalEntry;
+    friend class journalEntryWrapper;
+    shared_ptr<journalFile> getJournalFile();
+    shared_ptr<journalFile> writeEntry(const journalEntry * entry,const str & name,const str & data);
     
-    void writeEntry(const journalEntry * entry,const str & name,const str & data);
-    void deleteEntry(const journalEntry * entry);
+    
+    
     
 public:
     /**
@@ -57,10 +98,10 @@ public:
      * Destructor
      */
     ~journal();
-		
+	
 	template<class ...Args>
 	journalEntryPtr add(Args... args) {
-		return make_shared<journalEntry>(nextJournalEntry.fetch_add(10),args...);
+		return  make_shared<journalEntryWrapper>(nextJournalEntry.fetch_add(10),args...);
 	}
 	
 	void tryReplay(void);
