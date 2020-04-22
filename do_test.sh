@@ -44,6 +44,10 @@ function check_for_crash {
 	done
 }
 
+function quit {
+	check_for_crash
+	exit 1
+}
 
 
 #parse --uidgid parameter
@@ -61,7 +65,7 @@ fi
 
 
 echo "creating..."
-./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes --log-level 10  > /output/create_log.txt || exit 1 
+./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes --log-level 10  > /output/create_log.txt || quit
 
 check_for_crash
 
@@ -75,7 +79,7 @@ rm -f /srv/log.txt
 #./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --migrateto latest  || exit 1 
 
 echo "mounting..."
-./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt --loglevel 10 > /output/mount_log.txt || exit 1
+./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt --loglevel 10 > /output/mount_log.txt || quit
 touch /mnt/._meta
 touch /mnt/._stats
 
@@ -155,16 +159,16 @@ check_for_crash
 
 
 echo "re-mounting..."
-./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt > /output/remount_log.txt || exit 1 
+./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt > /output/remount_log.txt  || quit
 
 ls -lha /mnt > "$OUTPUT/ls.txt"
 cat /mnt/._meta > "$OUTPUT/_meta_final"
 cat /mnt/._stats > "$OUTPUT/_stats_final"
 cp /srv/log.txt $OUTPUT
 
+check_for_crash
 chown -R $UIDGID /output
 
-check_for_crash
 
 {
 

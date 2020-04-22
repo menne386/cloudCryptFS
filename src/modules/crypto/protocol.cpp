@@ -309,7 +309,7 @@ class protocol : public protocolInterface {
 	}
 	
 	shared_ptr<streamInterface> startStreamRead(shared_ptr<key> k,str & headerOut) override {
-		return make_shared<stream<V,MV,VA,true>>(k,headerOut);
+		return make_shared<stream<V,MV,VA,false>>(k,headerOut);
 	}
 	
 	

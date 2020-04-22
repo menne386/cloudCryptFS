@@ -140,6 +140,7 @@ void journal::tryReplay(void) {
 			str entryEnc(&encryptedJournal[offset],entryEncSize);
 			str entry;
 			cryptostream->message(entryEnc,entry);
+			_ASSERT(entry.size()==sizeof(journalEntry));
 			completeJournal.append(entry);
 			auto e = reinterpret_cast<const journalEntry *>(&entry[0]);
 			offset+=entryEncSize;
