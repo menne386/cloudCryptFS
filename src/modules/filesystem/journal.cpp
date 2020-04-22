@@ -39,13 +39,17 @@ namespace filesystem {
 	class journalFileImpl{
 		public:
 		std::ofstream F;
+		shared_ptr<crypto::streamInterface> cryptostream;
 	};
 };
 
 
 journalFile::journalFile(size_t iid,const str & ifilename) : id(iid),filename(ifilename),entries(0), impl(std::make_unique<journalFileImpl>()) {
 	impl->F.open(filename.c_str(),std::ios::binary|std::ios::out|std::ios::app);
+	str header;
+	impl->cryptostream = STOR->prot()->startStreamWrite(STOR->prot()->getProtoEncryptionKey(),header);
 	JOURNAL->srvMESSAGE("creating log: ",filename);
+	impl->F.write(header.data(),header.size());
 }
 
 journalFile::~journalFile() {
@@ -57,14 +61,23 @@ journalFile::~journalFile() {
 }
 
 void journalFile::writeEntry(const journalEntry * entry,const str & name,const str & data) {
+	_ASSERT(impl->F.is_open());
 	const char * ep = reinterpret_cast<const char *>(entry);
 	str content(ep,sizeof(journalEntry));
-	content.append(name);
-	content.append(data);
-	_ASSERT(content.size()==sizeof(journalEntry)+name.size()+data.size());
-	JOURNAL->srvDEBUG(entry->type==journalEntryType::close? "Removing": "Adding"," journal entry ",entry->id," size: ",content.size()," log: ",filename);
-	_ASSERT(impl->F.is_open());
-	impl->F.write(content.data(),content.size());
+	_ASSERT(content.size()==sizeof(journalEntry));
+	str datacontent(name);
+	datacontent.append(data);
+	_ASSERT(datacontent.size()==name.size()+data.size());
+	str encryptedContent;
+	impl->cryptostream->message(content,encryptedContent);
+	if(datacontent.size()) {
+		str encryptedData;
+		impl->cryptostream->message(datacontent,encryptedData);
+		encryptedContent.append(encryptedData);
+	}
+	JOURNAL->srvDEBUG(entry->type==journalEntryType::close? "Removing": "Adding"," journal entry ",entry->id," size: ",encryptedContent.size()," log: ",filename);
+	impl->F.write(encryptedContent.data(),encryptedContent.size());
+	impl->F.flush();
 	++entries;
 }
 
@@ -118,7 +131,27 @@ void journal::tryReplay(void) {
 	str completeJournal;
 	for (const auto & entry : std::filesystem::directory_iterator(path.c_str())) { 
 		const str p = entry.path().c_str();
-		completeJournal.append(util::getSystemString(p));
+		str encryptedJournal = util::getSystemString(p);
+		str header = encryptedJournal.substr(0,STOR->prot()->streamHeaderSize());
+		auto cryptostream = STOR->prot()->startStreamRead(STOR->prot()->getProtoEncryptionKey(),header);
+		size_t offset = STOR->prot()->streamHeaderSize();
+		auto entryEncSize = cryptostream->encryptionOverhead(sizeof(journalEntry));
+		while(offset<encryptedJournal.size()) {
+			str entryEnc(&encryptedJournal[offset],entryEncSize);
+			str entry;
+			cryptostream->message(entryEnc,entry);
+			completeJournal.append(entry);
+			auto e = reinterpret_cast<const journalEntry *>(&entry[0]);
+			offset+=entryEncSize;
+			if(e->dataLength + e->nameLength) {
+				auto dataEncSize = cryptostream->encryptionOverhead(e->nameLength+e->dataLength);
+				str dataEnc(&encryptedJournal[offset],dataEncSize);
+				str data;
+				cryptostream->message(dataEnc,data);
+				completeJournal.append(data);
+				offset+=dataEncSize;
+			}
+		}
 		files.push_back(p);
 	}
 	struct _item{

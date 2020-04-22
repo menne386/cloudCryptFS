@@ -11,6 +11,17 @@
 
 
 namespace crypto{
+	
+	class streamInterface{
+		public:
+			streamInterface() {};
+			virtual ~streamInterface() {};
+			
+			virtual void message(const str & in, str & out) = 0;
+			
+			virtual size_t encryptionOverhead(size_t messageSize) = 0;
+	};
+	
 	class protocolInterface{		
 		protected:
 		
@@ -85,6 +96,12 @@ namespace crypto{
 		
 		/* Regenerate content for a keyfile */
 		virtual str createKeyfileContent(void) = 0;
+		
+		
+		
+		virtual shared_ptr<streamInterface> startStreamWrite(shared_ptr<key> k,str & headerOut) = 0;
+		virtual shared_ptr<streamInterface> startStreamRead(shared_ptr<key> k,str & headerOut) = 0;
+		virtual size_t streamHeaderSize() = 0;
 
 		
 	};

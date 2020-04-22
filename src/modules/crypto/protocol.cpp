@@ -27,6 +27,49 @@ using namespace script::SLT;
 
 
 
+template<size_t V, size_t MV,bool VA,bool push>
+class stream : public streamInterface {
+private:
+	crypto_secretstream_xchacha20poly1305_state state;
+public:
+	stream(shared_ptr<key> k, str & headerOut) : streamInterface() {
+		_ASSERT(k->size()>=crypto_secretstream_xchacha20poly1305_KEYBYTES);
+		headerOut.resize(crypto_secretstream_xchacha20poly1305_HEADERBYTES);
+		auto K = k->use();
+		if(push) {
+			crypto_secretstream_xchacha20poly1305_init_push(&state, reinterpret_cast<unsigned char *>(&headerOut[0]), reinterpret_cast<unsigned char *>(&K[0]));
+		} else {
+			if (crypto_secretstream_xchacha20poly1305_init_pull(&state, reinterpret_cast<unsigned char *>(&headerOut[0]), reinterpret_cast<unsigned char *>(&K[0])) != 0) {
+				throw std::logic_error("Header invalid, cannot decrypt");
+				/* Invalid header, no need to go any further */
+			}
+		}
+	}
+	
+	void message(const str & in, str & out) override {
+		if(push) {
+			out.resize(encryptionOverhead(in.size()));
+			crypto_secretstream_xchacha20poly1305_push(&state, reinterpret_cast<uint8_t*>(&out[0]), NULL, _STRTOBYTESIZE(in), NULL, 0, 0);
+		} else {
+			out.resize(in.size() - crypto_secretstream_xchacha20poly1305_ABYTES);
+			unsigned char tag;
+			if (crypto_secretstream_xchacha20poly1305_pull(&state, reinterpret_cast<uint8_t*>(&out[0]), NULL, &tag, _STRTOBYTESIZE(in), NULL, 0) != 0) {
+				/* Invalid/incomplete/corrupted ciphertext - abort */
+				throw std::logic_error("Message forged");
+			}
+		}
+	}
+	
+	size_t encryptionOverhead(size_t messageSize) override{
+		return messageSize+crypto_secretstream_xchacha20poly1305_ABYTES;
+	}
+	
+	static size_t headerSize() {
+		return crypto_secretstream_xchacha20poly1305_HEADERBYTES;
+	}
+};
+
+
 template<size_t V, size_t MV,bool VA>
 class protocol : public protocolInterface {
 	private:
@@ -259,6 +302,21 @@ class protocol : public protocolInterface {
 		}
 		return content;
 	}
+	
+	
+	shared_ptr<streamInterface> startStreamWrite(shared_ptr<key> k,str & headerOut) override {
+		return make_shared<stream<V,MV,VA,true>>(k,headerOut);
+	}
+	
+	shared_ptr<streamInterface> startStreamRead(shared_ptr<key> k,str & headerOut) override {
+		return make_shared<stream<V,MV,VA,true>>(k,headerOut);
+	}
+	
+	
+	size_t streamHeaderSize() override {
+		return stream<V,MV,VA,false>::headerSize();
+	}
+	
 	
 };
 
