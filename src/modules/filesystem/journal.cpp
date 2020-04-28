@@ -44,7 +44,7 @@ namespace filesystem {
 };
 
 
-journalFile::journalFile(size_t iid,const str & ifilename) : id(iid),filename(ifilename),entries(0), impl(std::make_unique<journalFileImpl>()) {
+journalFile::journalFile(const str & ifilename) : filename(ifilename),entries(0), impl(std::make_unique<journalFileImpl>()) {
 	impl->F.open(filename.c_str(),std::ios::binary|std::ios::out|std::ios::app);
 	str header;
 	impl->cryptostream = STOR->prot()->startStreamWrite(STOR->prot()->getProtoEncryptionKey(),header);
@@ -90,26 +90,23 @@ void journalFile::deleteEntry(const journalEntry * entry) {
 
 
 shared_ptr<journalFile> journal::getJournalFile() {
-	std::hash<std::thread::id> hasher;
 	static thread_local std::weak_ptr<journalFile> jf;
 	
 	if(auto myFile = jf.lock()) {
 		if(myFile->getEntries() > 1024) {// if too many entries for file, make new file & return that.
-			size_t nextid = myFile->getId() + 1;
-			auto this_id = std::this_thread::get_id();
-			const str filename = BUILDSTRING(STOR->getPath(),"journal/",hasher(this_id),".",nextid);
-			myFile = std::make_shared<journalFile>(nextid,filename);
+			size_t nextid = nextJournalEntry.fetch_add(1);
+			const str filename = BUILDSTRING(STOR->getPath(),"journal/.",nextid);
+			myFile = std::make_shared<journalFile>(filename);
 			jf = myFile;
 		}
 		
 		return myFile;
 	}
-	size_t id = 0;
-	auto this_id = std::this_thread::get_id();
+	size_t id = nextJournalEntry.fetch_add(1);
 	
-	const str filename = BUILDSTRING(STOR->getPath(),"journal/",hasher(this_id),".",id);
+	const str filename = BUILDSTRING(STOR->getPath(),"journal/.",id);
 	
-	auto ret = std::make_shared<journalFile>(id,filename);
+	auto ret = std::make_shared<journalFile>(filename);
 	
 	jf = ret;
 	

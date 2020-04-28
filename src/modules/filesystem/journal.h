@@ -57,20 +57,18 @@ namespace filesystem {
 	class journalFileImpl;
 	class journalFile{
 		private:
-		const size_t id;
 		const str filename;
 		unsigned entries;
 		unique_ptr<journalFileImpl> impl;
 		public:
 		
-		journalFile(size_t iid,const str & ifilename);
+		journalFile(const str & ifilename);
 		~journalFile();
 
-		size_t getId() const {return id; }
 		unsigned getEntries() { return entries; }
 		
-	    void writeEntry(const journalEntry * entry,const str & name,const str & data);
-	    void deleteEntry(const journalEntry * entry);
+		void writeEntry(const journalEntry * entry,const str & name,const str & data);
+		void deleteEntry(const journalEntry * entry);
 		
 		
 	};
@@ -79,33 +77,33 @@ namespace filesystem {
  */
 class journal: public service {
 private:
-    std::atomic_uint32_t nextJournalEntry;
-    str path;
-    friend class journalEntryWrapper;
-    shared_ptr<journalFile> getJournalFile();
-    shared_ptr<journalFile> writeEntry(const journalEntry * entry,const str & name,const str & data);
-    
-    
-    
-    
+	std::atomic_uint32_t nextJournalEntry;
+	str path;
+	friend class journalEntryWrapper;
+	shared_ptr<journalFile> getJournalFile();
+	shared_ptr<journalFile> writeEntry(const journalEntry * entry,const str & name,const str & data);
+	
+	
+	
+	
 public:
-    /**
-     * Default constructor
-     */
-    journal();
-		
-    /**
-     * Destructor
-     */
-    ~journal();
+	/**
+	 * Default constructor
+	 */
+	journal();
+	
+	/**
+	 * Destructor
+	 */
+	~journal();
 	
 	template<class ...Args>
 	journalEntryPtr add(Args... args) {
-		return  make_shared<journalEntryWrapper>(nextJournalEntry.fetch_add(10),args...);
+		return  make_shared<journalEntryWrapper>(nextJournalEntry.fetch_add(1),args...);
 	}
 	
 	void tryReplay(void);
-
+	
 	srvSTATICDEFAULTNEWINSTANCE( journal );
 };
 
