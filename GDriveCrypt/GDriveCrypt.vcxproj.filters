@@ -108,6 +108,9 @@
     <ClCompile Include="..\src\modules\util\buildstring.cpp">
       <Filter>Source Files\Modules\util</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\modules\filesystem\journal.cpp">
+      <Filter>Source Files\Modules\filesystem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\buildn.h">

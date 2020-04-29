@@ -166,6 +166,7 @@
     <ClCompile Include="..\src\modules\filesystem\fs.cpp" />
     <ClCompile Include="..\src\modules\filesystem\hash.cpp" />
     <ClCompile Include="..\src\modules\filesystem\inode.cpp" />
+    <ClCompile Include="..\src\modules\filesystem\journal.cpp" />
     <ClCompile Include="..\src\modules\filesystem\storage.cpp" />
     <ClCompile Include="..\src\modules\script\JSON.cpp" />
     <ClCompile Include="..\src\modules\script\lexer.cpp" />

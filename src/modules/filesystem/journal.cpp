@@ -127,7 +127,7 @@ void journal::tryReplay(void) {
 	std::vector<str> files;
 	str completeJournal;
 	for (const auto & entry : std::filesystem::directory_iterator(path.c_str())) { 
-		const str p = entry.path().c_str();
+		const str p = str(entry.path().generic_string().c_str());
 		str encryptedJournal = util::getSystemString(p);
 		str header = encryptedJournal.substr(0,STOR->prot()->streamHeaderSize());
 		auto cryptostream = STOR->prot()->startStreamRead(STOR->prot()->getProtoEncryptionKey(),header);

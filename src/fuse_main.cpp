@@ -526,7 +526,7 @@ int fallocate_callback(const char *, int, off_t, off_t, struct fuse_file_info *)
 int ioctl_callback(const char *, int cmd, void *arg, struct fuse_file_info *, unsigned int flags, void *data){ FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
 int poll_callback(const char *, struct fuse_file_info *, struct fuse_pollhandle *ph, unsigned *reventsp){ FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
 
-ssize_t copy_file_range_callback(const char *path_in, struct fuse_file_info *fi_in, off_t offset_in, const char *path_out, struct fuse_file_info *fi_out, off_t offset_out, size_t size, int flags) { FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
+size_t copy_file_range_callback(const char *path_in, struct fuse_file_info *fi_in, off_t offset_in, const char *path_out, struct fuse_file_info *fi_out, off_t offset_out, size_t size, int flags) { FS->srvDEBUG(__FUNCTION__);	return -ENOSYS; }
 
 
 
