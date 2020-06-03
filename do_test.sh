@@ -28,7 +28,7 @@ function compare_files {
 function usage {
 	echo "usage: $0 [--uidgid xxx:xxx] some test names"
 	echo "Avaiable tests:"
-	echo "create_read, dedup, fstest"
+	echo "create_read, dedup, fstest, crashresistant"
 	cd /tests/ 
 	echo "Available tests in fstest:"
 	ls -d */ 

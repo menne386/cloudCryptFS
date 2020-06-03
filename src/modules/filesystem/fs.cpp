@@ -345,6 +345,10 @@ my_err_t fs::replayEntry(const journalEntry * entry, const str & name, const str
 			return status;
 		}break;
 		
+		case journalEntryType::unlink: {
+			//@todo:
+		}break;
+		
 		default:{
 			auto F = inodeToFile(entry->newNode,"",nullptr);
 			return F->replayEntry(entry,name,data,ctx,je);
@@ -634,6 +638,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 	}
 	srvDEBUG("unlink 2 ",filename);
 	filePtr fileToDelete;
+	auto entry = JOURNAL->add(journalEntryType::unlink,parent->bucketIdx(),f->bucketIdx(),bucketIndex_t(),(my_mode_t)0,f->getNumLinks(),srcChildName);
 	
 	if(f->type()==fileType::DIR) {
 		if(f->isFullDir()) {
