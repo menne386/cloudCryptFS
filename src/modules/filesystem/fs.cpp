@@ -639,6 +639,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 	srvDEBUG("unlink 2 ",filename);
 	filePtr fileToDelete;
 	auto entry = JOURNAL->add(journalEntryType::unlink,parent->bucketIdx(),f->bucketIdx(),bucketIndex_t(),(my_mode_t)0,f->getNumLinks(),srcChildName);
+	//@todo: i should continue here by making it so that the change in executed in an inner function.
 	
 	if(f->type()==fileType::DIR) {
 		if(f->isFullDir()) {
