@@ -25,6 +25,14 @@ function compare_files {
 	fi
 }
 
+function file_deleted {
+	if [[ -f "$1" ]]; then
+		echo "FAIL! $1 was not deleted as expected"
+	else
+		echo "PASS: $1 was deleted as expected"
+	fi
+}
+
 function usage {
 	echo "usage: $0 [--uidgid xxx:xxx] some test names"
 	echo "Avaiable tests:"
@@ -42,6 +50,16 @@ function check_for_crash {
 		chown -R $UIDGID /output
 		exit 1
 	done
+}
+
+function remount {
+		echo "re-mounting for $1"
+		fusermount -u /mnt
+		sleep 2
+		cp /srv/log.txt $OUTPUT
+		chown -R $UIDGID /output
+		check_for_crash
+		/cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt > /output/remount_$1.txt  || quit
 }
 
 function quit {
@@ -65,27 +83,26 @@ fi
 
 
 echo "creating..."
-./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes --log-level 10  > /output/create_log.txt || quit
+/cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --create yes --log-level 10  > /output/create_log.txt || quit
 
 check_for_crash
 
 rm -f /srv/log.txt
 #echo "mounting:"
-#./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt || exit 1
+#/cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt || exit 1
 
 #cp /cloudCryptFS.docker /mnt/
 #fusermount -u /mnt
 #echo "migrating:"
-#./cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --migrateto latest  || exit 1 
+#/cloudCryptFS.docker -osrc=/srv/ -opass=menne -o allow_other --migrateto latest  || exit 1 
 
 echo "mounting..."
-./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt --loglevel 10 > /output/mount_log.txt || quit
+/cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt --loglevel 10 > /output/mount_log.txt || quit
 touch /mnt/._meta
 touch /mnt/._stats
 
 check_for_crash
 
-cd /mnt 
 
 
 
@@ -98,6 +115,10 @@ while (( "$#" )); do
 
 echo "running test... $1"
 if [[ "$1" == "crashresistant" ]]; then
+		cp /testfile1 /mnt/tf1 -v
+		cp /testfile2 /mnt/tf2 -v
+		remount "crashresistant"
+		rm -f /mnt/tf1
 		cp /cloudCryptFS.docker /mnt/crashfile -v
 		kill -9 `pidof cloudCryptFS.docker`
 		cp -rv /srv/journal /output
@@ -116,19 +137,23 @@ elif [[ "$1" == "dedup" ]]; then
 		sleep 6
 		touch /output/dedup
 elif [[ -d "/tests/$1" || -f "/tests/$1" ]]; then
+		cd /mnt
 		if [[ "$2" == "-v" ]]; then
 			prove -e bash -r /tests/$1 -v 
 			shift
 		else
 			prove -e bash -r /tests/$1  
 		fi
+		cd -
 elif [[ "$1" == "fstest" ]]; then
+		cd /mnt
 		if [[ "$2" == "-v" ]]; then
 			prove -e bash -r /tests/ -v 
 			shift
 		else
 			prove -e bash -r /tests/  
 		fi
+		cd -
 else 
 	echo "test $1 not found!"
 	usage
@@ -150,16 +175,7 @@ cp /srv/log.txt $OUTPUT
 cat /mnt/._meta > "$OUTPUT/_meta"
 cat /mnt/._stats > "$OUTPUT/_stats"
 
-echo "unmounting..."
-fusermount -u /mnt
-sleep 2
-cp /srv/log.txt $OUTPUT
-chown -R $UIDGID /output
-check_for_crash
-
-
-echo "re-mounting..."
-./cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt > /output/remount_log.txt  || quit
+remount "step2"
 
 ls -lha /mnt > "$OUTPUT/ls.txt"
 cat /mnt/._meta > "$OUTPUT/_meta_final"
@@ -174,6 +190,7 @@ chown -R $UIDGID /output
 
 if [[ -f "/output/crashresistant" ]]; then
 	compare_files /mnt/crashfile /cloudCryptFS.docker
+	file_deleted /mnt/tf1
 fi
 
 if [[ -f "/output/create_read" ]]; then

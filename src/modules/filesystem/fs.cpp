@@ -346,6 +346,7 @@ my_err_t fs::replayEntry(const journalEntry * entry, const str & name, const str
 		}break;
 		
 		case journalEntryType::unlink: {
+			return unlinkinner(name.c_str(),ctx,je);
 			//@todo:
 		}break;
 		
@@ -637,9 +638,28 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 		return EE::access_denied;
 	}
 	srvDEBUG("unlink 2 ",filename);
+	auto entry = JOURNAL->add(journalEntryType::unlink,parent->bucketIdx(),f->bucketIdx(),bucketIndex_t(),(my_mode_t)0,f->getNumLinks(),filename);
+	parent.reset();
+	f.reset();
+	return replayEntry(entry->entry(),filename,"",ctx,entry);
+}
+
+my_err_t fs::unlinkinner(const char * filename, const context * ctx,shared_ptr<journalEntryWrapper> je) {
+	str srcParentName = getParentPath(filename);
+	
+	str srcChildName = getChildPath(filename);
+	
+	auto parent = get(srcParentName.c_str());
+	
+	auto f = get(filename);
+	
+	if(je) {
+		_ASSERT(je->entry()->newNode == f->bucketIdx());
+		_ASSERT(je->entry()->parentNode == parent->bucketIdx());
+		_ASSERT(je->entry()->offset == f->getNumLinks());
+	}
+		
 	filePtr fileToDelete;
-	auto entry = JOURNAL->add(journalEntryType::unlink,parent->bucketIdx(),f->bucketIdx(),bucketIndex_t(),(my_mode_t)0,f->getNumLinks(),srcChildName);
-	//@todo: i should continue here by making it so that the change in executed in an inner function.
 	
 	if(f->type()==fileType::DIR) {
 		if(f->isFullDir()) {
@@ -658,7 +678,7 @@ my_err_t fs::unlink(const char * filename, const context * ctx) {
 	srvDEBUG("unlink 3 ",filename);
 	
 	
-	auto ret = parent->removeNode(srcChildName,ctx,nullptr);
+	auto ret = parent->removeNode(srcChildName,ctx,je);
 	if(ret==EE::ok) {
 		//stats->getI("nodes")--;
 		if(f->type()==fileType::DIR) {

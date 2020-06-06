@@ -52,6 +52,7 @@ namespace filesystem{
 		std::array<util::atomic_shared_ptr<file>,maxOpenFiles> openHandles;
 		
 		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx,my_mode_t type, my_mode_t mod);
+		my_err_t unlinkinner(const char * filename, const context * ctx=nullptr,shared_ptr<journalEntryWrapper> je=nullptr);
 		
 		
 		
