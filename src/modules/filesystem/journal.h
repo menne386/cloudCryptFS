@@ -19,7 +19,8 @@ namespace filesystem {
 		close=0x10,
 		mkobject=0x20,
 		write=0x30,
-		unlink=0x40
+		unlink=0x40,
+		renamemove=0x50
 	};
 	class journalFile;
 	

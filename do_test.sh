@@ -119,6 +119,7 @@ if [[ "$1" == "crashresistant" ]]; then
 		cp /testfile2 /mnt/tf2 -v
 		remount "crashresistant"
 		rm -f /mnt/tf1
+		mv /mnt/tf2 /mnt/tf2_1
 		cp /cloudCryptFS.docker /mnt/crashfile -v
 		kill -9 `pidof cloudCryptFS.docker`
 		cp -rv /srv/journal /output
@@ -191,6 +192,8 @@ chown -R $UIDGID /output
 if [[ -f "/output/crashresistant" ]]; then
 	compare_files /mnt/crashfile /cloudCryptFS.docker
 	file_deleted /mnt/tf1
+	file_deleted /mnt/tf2
+	compare_files /mnt/tf2_1 /testfile2
 fi
 
 if [[ -f "/output/create_read" ]]; then

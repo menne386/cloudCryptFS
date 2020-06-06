@@ -350,6 +350,10 @@ my_err_t fs::replayEntry(const journalEntry * entry, const str & name, const str
 			//@todo:
 		}break;
 		
+		case journalEntryType::renamemove: {
+			return renamemoveinner(name.c_str(),data.c_str(),ctx,je);
+		}break;
+		
 		default:{
 			auto F = inodeToFile(entry->newNode,"",nullptr);
 			return F->replayEntry(entry,name,data,ctx,je);
@@ -755,26 +759,49 @@ my_err_t fs::renamemove(const char * source,const char * dest, const context * c
 
 		//"rename returns EEXIST or ENOTEMPTY if the 'to' argument is a directory and is not empty"
 		if(dstfile->isFullDir()) {
-			return EE::exists;
+			return EE::not_empty;
 		}
 	}
+
+	auto entry = JOURNAL->add(journalEntryType::renamemove,srcparent->bucketIdx(),srcfile->bucketIdx(),dstparent->bucketIdx(),(my_mode_t)0,0,source,dest);
 	
+	return replayEntry(entry->entry(),source,dest,ctx,entry);
+}
+
+my_err_t fs::renamemoveinner(const char * source, const char * dest, const context * ctx,shared_ptr<journalEntryWrapper> je) {		
+	str srcParentName = getParentPath(source);
+	str dstParentName = getParentPath(dest);
+	//srvDEBUG("a ",srcParentName," ",dstParentName);
 	
+	str srcChildName = getChildPath(source);
+	str dstChildName = getChildPath(dest);
+	
+	auto srcparent = get(srcParentName.c_str());
+	auto dstparent = get(dstParentName.c_str());
+	
+	auto srcfile = get(source);
+	auto dstfile = get(dest);	
+	
+	if(je) {
+		_ASSERT(je->entry()->parentNode == srcparent->bucketIdx());
+		_ASSERT(je->entry()->newNode == srcfile->bucketIdx());
+		_ASSERT(je->entry()->newParentNode == dstparent->bucketIdx());
+	}
 	//srvDEBUG("c");
 	auto node = srcfile->getMetaChunk();
 	//Add the file in the destination:
-	auto error = dstparent->addNode(dstChildName,node,true,ctx,nullptr);
+	auto error = dstparent->addNode(dstChildName,node,true,ctx,je);
 	if(error==EE::exists) {
 		//srvWARNING("rename is overwriting ",dest);
 		unlink(dest,ctx);
-		error = dstparent->addNode(dstChildName,node,true,ctx,nullptr);
+		error = dstparent->addNode(dstChildName,node,true,ctx,je);
 	}
 	if(error) {
 		return error;
 	}
 	//srvDEBUG("d");
 	//Remove the old file in the source:
-	error = srcparent->removeNode(srcChildName,ctx,nullptr);
+	error = srcparent->removeNode(srcChildName,ctx,je);
 	if(error) {
 		return error;
 	}

@@ -53,6 +53,7 @@ namespace filesystem{
 		
 		metaPtr mkobject(const char * filename,my_err_t & errorcode,const context * ctx,my_mode_t type, my_mode_t mod);
 		my_err_t unlinkinner(const char * filename, const context * ctx=nullptr,shared_ptr<journalEntryWrapper> je=nullptr);
+		my_err_t renamemoveinner(const char* source, const char* dest, const context* ctx, std::shared_ptr< filesystem::journalEntryWrapper > je);
 		
 		
 		

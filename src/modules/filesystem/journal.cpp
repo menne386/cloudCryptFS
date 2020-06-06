@@ -168,6 +168,7 @@ void journal::tryReplay(void) {
 			case journalEntryType::mkobject:
 			case journalEntryType::write:
 			case journalEntryType::unlink:
+			case journalEntryType::renamemove:
 				items[entry->id].offset = offset;
 				items[entry->id].size = sizeof(journalEntry)+entry->nameLength+entry->dataLength;
 				break;
