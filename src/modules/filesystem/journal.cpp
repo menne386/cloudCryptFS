@@ -169,6 +169,9 @@ void journal::tryReplay(void) {
 			case journalEntryType::write:
 			case journalEntryType::unlink:
 			case journalEntryType::renamemove:
+			case journalEntryType::chown:
+			case journalEntryType::chmod:
+			case journalEntryType::truncate:
 				items[entry->id].offset = offset;
 				items[entry->id].size = sizeof(journalEntry)+entry->nameLength+entry->dataLength;
 				break;

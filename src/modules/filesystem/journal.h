@@ -20,7 +20,10 @@ namespace filesystem {
 		mkobject=0x20,
 		write=0x30,
 		unlink=0x40,
-		renamemove=0x50
+		renamemove=0x50,
+		chmod=0x60, //@todo: implement
+		chown=0x70, //@todo: implement
+		truncate=0x80 //@todo: implement
 	};
 	class journalFile;
 	
