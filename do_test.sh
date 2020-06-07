@@ -64,7 +64,7 @@ function remount {
 
 function checkstat {
 	VAL="`stat $1 --format $2`"
-	if [[ "$VAL" -eq "$3" ]]; then
+	if [[ "$VAL" == "$3" ]]; then
 		echo "PASS: expected stat $3 found."
 	else
 		echo "FAIL! expected stat $3, found: $VAL"
@@ -131,6 +131,7 @@ if [[ "$1" == "crashresistant" ]]; then
 		cp /testfile2 /mnt/tf5 -v
 		remount "crashresistant"
 		chmod 755 /mnt/tf3
+		chown 1001:1001 /mnt/tf3
 		rm -f /mnt/tf1
 		mv /mnt/tf2 /mnt/tf2_1
 		cp /cloudCryptFS.docker /mnt/crashfile -v
@@ -208,6 +209,7 @@ if [[ -f "/output/crashresistant" ]]; then
 	file_deleted /mnt/tf2
 	compare_files /mnt/tf2_1 /testfile2
 	checkstat /mnt/tf3 %a 755
+	checkstat /mnt/tf3 "%u:%g" "1001:1001"
 fi
 
 if [[ -f "/output/create_read" ]]; then

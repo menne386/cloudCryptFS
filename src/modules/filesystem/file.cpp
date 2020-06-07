@@ -283,15 +283,20 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 			//FS->srvERROR(" gid not in list: ",ctx->gids);
 			return EE::permission_denied;
 		}
-		
-
-
 	}
+	
+	
 	if(uid!=maxUid || gid != maxGid) {
 		INode()->mode.clear(mode::FLAG_SGID|mode::FLAG_SUID);
 	}
 
+	auto je = JOURNAL->add(journalEntryType::chown,bucketIndex_t(),INode()->myID,bucketIndex_t(),uid,gid);
+	return replayEntry(je->entry(),"","",ctx,je);
+}
 
+my_err_t file::chownInner(my_uid_t uid, my_gid_t gid,shared_ptr<journalEntryWrapper> je) {
+	constexpr my_uid_t maxUid = std::numeric_limits<my_uid_t>::max();
+	constexpr my_gid_t maxGid = std::numeric_limits<my_gid_t>::max();
 
 	auto tv = currentTime();
 
@@ -301,9 +306,12 @@ my_err_t file::chown(my_uid_t uid, my_gid_t gid, const context * ctx) {
 
 	if(uid!=maxUid)INode()->uid = uid;
 	if(gid!=maxGid)INode()->gid = gid;
+	
+	if(je) {
+		STOR->metaBuckets->getBucket(INode()->myID.bucket())->addChange(je);
+	}
+	
 	return EE::ok;
-
-
 }
 
 my_err_t file::addNode(const str & name,shared_ptr<chunk> nodeMeta,bool force,const context * ctx,std::shared_ptr<journalEntryWrapper> je) {
@@ -1050,6 +1058,8 @@ my_err_t file::replayEntry(const journalEntry * entry, const str & name, const s
 			break;
 		case journalEntryType::chmod:
 			return chmodInner(entry->mod,je);
+		case journalEntryType::chown:
+			return chownInner(entry->mod,entry->offset,je);
 		default:
 			return EE::invalid_syscall;
 	}
