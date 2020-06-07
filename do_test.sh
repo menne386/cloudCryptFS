@@ -62,6 +62,15 @@ function remount {
 		/cloudCryptFS.docker -osrc=/srv/ -onegative_timeout=0 -ohard_remove -onoauto_cache -odirect_io,use_ino -oattr_timeout=0 -oentry_timeout=0 -opass=menne -o allow_other mnt > /output/remount_$1.txt  || quit
 }
 
+function checkstat {
+	VAL="`stat $1 --format $2`"
+	if [[ "$VAL" -eq "$3" ]]; then
+		echo "PASS: expected stat $3 found."
+	else
+		echo "FAIL! expected stat $3, found: $VAL"
+	fi
+}
+
 function quit {
 	check_for_crash
 	exit 1
@@ -117,13 +126,17 @@ echo "running test... $1"
 if [[ "$1" == "crashresistant" ]]; then
 		cp /testfile1 /mnt/tf1 -v
 		cp /testfile2 /mnt/tf2 -v
+		cp /testfile2 /mnt/tf3 -v
+		cp /testfile2 /mnt/tf4 -v
+		cp /testfile2 /mnt/tf5 -v
 		remount "crashresistant"
+		chmod 755 /mnt/tf3
 		rm -f /mnt/tf1
 		mv /mnt/tf2 /mnt/tf2_1
 		cp /cloudCryptFS.docker /mnt/crashfile -v
 		kill -9 `pidof cloudCryptFS.docker`
-		cp -rv /srv/journal /output
-		rm -fv /srv/._lock
+		cp -r /srv/journal /output
+		rm -f /srv/._lock
 		touch /output/crashresistant
 elif [[ "$1" == "create_read" ]]; then
 		cp /cloudCryptFS.docker /mnt/ccfstestfile -v
@@ -194,6 +207,7 @@ if [[ -f "/output/crashresistant" ]]; then
 	file_deleted /mnt/tf1
 	file_deleted /mnt/tf2
 	compare_files /mnt/tf2_1 /testfile2
+	checkstat /mnt/tf3 %a 755
 fi
 
 if [[ -f "/output/create_read" ]]; then

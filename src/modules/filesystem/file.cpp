@@ -223,12 +223,20 @@ my_err_t file::chmod(my_mode_t mod,const context * ctx) {
 		mod |=mode::FLAG_SGID;
 		mod ^=mode::FLAG_SGID;
 	}
+	auto je = JOURNAL->add(journalEntryType::chmod,bucketIndex_t(),INode()->myID,bucketIndex_t(),mod,0);
+	return replayEntry(je->entry(),"","",ctx,je);
+	
+}
+my_err_t file::chmodInner(my_mode_t mod,shared_ptr<journalEntryWrapper> je) {
 	auto tv = currentTime();
 	INode()->mtime = tv;
 	INode()->ctime = tv;
 	_ASSERT((mod & mode::TYPE) == (INode()->mode.type()));
 	INode()->mode = mod;
-	
+
+	if(je) {
+		STOR->metaBuckets->getBucket(INode()->myID.bucket())->addChange(je);
+	}
 	
 	return EE::ok;
 }
@@ -1040,6 +1048,8 @@ my_err_t file::replayEntry(const journalEntry * entry, const str & name, const s
 		case journalEntryType::write:
 			return writeInner(_STRTOBYTESIZE(data),entry->offset,nullptr) == (my_off_t)entry->dataLength ? EE::ok : EE::io_error;
 			break;
+		case journalEntryType::chmod:
+			return chmodInner(entry->mod,je);
 		default:
 			return EE::invalid_syscall;
 	}

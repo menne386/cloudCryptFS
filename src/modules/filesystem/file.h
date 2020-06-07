@@ -66,6 +66,7 @@ namespace filesystem{
 		bool validate_ownership(const context * ctx,my_mode_t newMode);
 		inode * INode() const {return metaChunk->as<inode>();} 
 		my_off_t writeInner(const unsigned char * buf,my_size_t size,const my_off_t offset,shared_ptr<journalEntryWrapper> je);
+		my_err_t chmodInner(my_mode_t mod,shared_ptr<journalEntryWrapper> je);
 	public:
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);
