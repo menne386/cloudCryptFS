@@ -23,7 +23,7 @@ namespace filesystem {
 		renamemove=0x50,
 		chmod=0x60, 
 		chown=0x70, 
-		truncate=0x80 //@todo: implement
+		truncate=0x80 
 	};
 	class journalFile;
 	

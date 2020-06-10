@@ -68,6 +68,7 @@ namespace filesystem{
 		my_off_t writeInner(const unsigned char * buf,my_size_t size,const my_off_t offset,shared_ptr<journalEntryWrapper> je);
 		my_err_t chmodInner(my_mode_t mod,shared_ptr<journalEntryWrapper> je);
 		my_err_t chownInner(my_uid_t uid, my_gid_t gid,shared_ptr<journalEntryWrapper> je);
+		my_err_t truncateInner(my_off_t newSize,shared_ptr<journalEntryWrapper> je);
 	public:
 		file(specialFile intype);
 		file(std::shared_ptr<chunk> imeta, const str & ipath, const std::vector<permission> & ipathPerm);

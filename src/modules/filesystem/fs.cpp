@@ -692,7 +692,6 @@ my_err_t fs::unlinkinner(const char * filename, const context * ctx,shared_ptr<j
 		lckguard _l2(_mut);
 		if(fileToDelete) {
 			srvDEBUG("shredding deleted file: ", fileToDelete->getPath());
-			fileToDelete->truncate(0);//Truncating to zero will remove all data
 			auto inoToDel = fileToDelete->setDeletedAndReturnAllUsedInodes();//mark file as deleted and return all metaData blocks that were used.
 			bucketIndex_t i = bucketIndex_t(fileToDelete->ino());
 

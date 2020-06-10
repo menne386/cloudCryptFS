@@ -134,6 +134,7 @@ if [[ "$1" == "crashresistant" ]]; then
 		chown 1001:1001 /mnt/tf3
 		rm -f /mnt/tf1
 		mv /mnt/tf2 /mnt/tf2_1
+		truncate -c -s 123 /mnt/tf5
 		cp /cloudCryptFS.docker /mnt/crashfile -v
 		kill -9 `pidof cloudCryptFS.docker`
 		cp -r /srv/journal /output
@@ -210,6 +211,7 @@ if [[ -f "/output/crashresistant" ]]; then
 	compare_files /mnt/tf2_1 /testfile2
 	checkstat /mnt/tf3 %a 755
 	checkstat /mnt/tf3 "%u:%g" "1001:1001"
+	checkstat /mnt/tf5 "%s" "123"
 fi
 
 if [[ -f "/output/create_read" ]]; then

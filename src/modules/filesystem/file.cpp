@@ -72,6 +72,7 @@ file::~file() {
 
 std::vector<bucketIndex_t> filesystem::file::setDeletedAndReturnAllUsedInodes() {
 	isDeleted.store(true); 
+	truncateInner(0,nullptr);
 	lckunique l(_mut);//Locking required for INode list
 	std::vector<bucketIndex_t> ret;
 	ret.push_back(INode()->myID);
@@ -499,6 +500,11 @@ my_err_t file::truncate(my_off_t newSize) {
 		return EE::too_big;
 	}
 	
+	auto je = JOURNAL->add(journalEntryType::truncate,bucketIndex_t(),INode()->myID,bucketIndex_t(),0u,newSize);
+	return replayEntry(je->entry(),"","",nullptr,je);
+}
+
+my_err_t file::truncateInner(my_off_t newSize,shared_ptr<journalEntryWrapper> je) {
 	lckunique l(_mut);//@todo: test locking for this operation, somehow truncating a file can change the md5 of another file!!
 	
 	FS->srvDEBUG("file::truncate: ", path, " to ", newSize);
@@ -515,13 +521,15 @@ my_err_t file::truncate(my_off_t newSize) {
 	if(newSize % chunkSize>0) {
 		++newNum;
 	}
-	
+	std::set<uint64_t> bucketsAffected;
 	if(newNum< hashList.getSize()) {
 		expected = hashList.getSize()-newNum;
 		toDelete = hashList.truncateAndReturn(newNum,FS->zeroHash());
+		
 		_ASSERT(toDelete.size()==expected);
 		for (auto deleteHash : toDelete) {
 			if(deleteHash ) {
+				bucketsAffected.insert(deleteHash->getBucketIndex().bucket());
 				--expected;
 				deleteHash->decRefCnt();
 				deleteHash->rest(); //This will store the hash, or, will delete it altogether.
@@ -533,17 +541,25 @@ my_err_t file::truncate(my_off_t newSize) {
 		try{
 			auto numAdded = hashList.truncateAndReturn(newNum,FS->zeroHash()).size();
 			FS->zeroHash()->incRefCnt(numAdded);
+			bucketsAffected.insert(FS->zeroHash()->getBucketIndex().bucket());
 		} catch( std::exception & e) {
 			return EE::too_big;
 		}
+	}
+	if(je) {
+		for(auto & b:bucketsAffected) {
+			STOR->buckets->getBucket(b)->addChange(je);
+		}
+		STOR->metaBuckets->getBucket(INode()->myID.bucket())->addChange(je);
 	}
 	
 	
 	
 	INode()->size = newSize;
-	rest();
+	rest();	
 	return EE::ok;
 }
+
 
 my_off_t file::read(unsigned char * buf,my_size_t size,const my_off_t offset) {
 	if(!valid()) {
@@ -1060,6 +1076,8 @@ my_err_t file::replayEntry(const journalEntry * entry, const str & name, const s
 			return chmodInner(entry->mod,je);
 		case journalEntryType::chown:
 			return chownInner(entry->mod,entry->offset,je);
+		case journalEntryType::truncate:
+			return truncateInner(entry->offset,je);
 		default:
 			return EE::invalid_syscall;
 	}
