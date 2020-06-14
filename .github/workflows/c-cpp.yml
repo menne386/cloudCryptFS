@@ -13,4 +13,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: build-docker-image
+      run: ./build_docker_image.sh
 
