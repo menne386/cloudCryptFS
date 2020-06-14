@@ -13,5 +13,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: install librabry's
+      run: apt-get install -y libfuse-dev
     - name: make
       run: make
