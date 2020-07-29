@@ -22,7 +22,7 @@ echo "Mounting vault:"
 
 echo "Backing up data:"
 
-rsync -av /source/ /target/
+rsync -av /source/ /mnt/
 
 echo "Closing vault:"
 fusermount -u /mnt/
