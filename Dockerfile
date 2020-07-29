@@ -3,7 +3,7 @@
 # license that can be found in the LICENSE file.
 FROM debian:stable-slim
 LABEL maintainer="Menne Kamminga <kamminga.m@gmail.com>"
-LABEL description="An rsync server that will encrypt data you send to it using the cloudCryptFS project"
+LABEL description="A backup script that will backup items you provide into encrypted storage."
 
 RUN apt-get update && apt-get install -y \
     rsync \
@@ -13,9 +13,14 @@ RUN apt-get update && apt-get install -y \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-EXPOSE 873
-
 COPY cloudCryptFS.docker entry_point.sh /
+
+RUN mkdir /target && mkdir /secrets && mkdir /source
+VOLUME /target
+VOLUME /secrets
+VOLUME /source
+
+ENV PASSFILE="/secrets/password" KEYFILE="/secrets/keyfile.key" LOGLEVEL=1
 
 
 ENTRYPOINT ["/entry_point.sh"]

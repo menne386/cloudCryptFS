@@ -3,23 +3,27 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-echo "FS:"
-/cloudCryptFS.docker -odirect_io,use_ino --src /srv/ --pass menne /mnt
+if [ ! -f "$PASSFILE" ]; then
+	echo "Provide a password in the $PASSFILE file"
+	exit 1
+fi
 
-echo "log file = /srv/log.txt" > /etc/rsyncd.conf
-echo "[files]" >> /etc/rsyncd.conf
-echo "path = /mnt" >> /etc/rsyncd.conf
-echo "comment = Backups" >> /etc/rsyncd.conf
-echo "read only = false" >> /etc/rsyncd.conf
-echo "timeout = 300" >> /etc/rsyncd.conf
-echo "uid = 0" >> /etc/rsyncd.conf
-echo "gid = 0" >> /etc/rsyncd.conf
+PASS=`cat $PASSFILE`
 
-echo "RSYNC:"
-rsync --daemon
-echo "READY"
+if [ ! -d "/target/dta" ]; then
+	echo "Creating vault:"
+	/cloudCryptFS.docker -osrc=/target/ -opass=$PASS,keyfile=$KEYFILE --create yes --log-level $LOGLEVEL || exit 1
+fi
 
 
 
-tail -f /srv/log.txt 
-read -p "Press enter to continue"
+echo "Mounting vault:"
+/cloudCryptFS.docker -odirect_io,use_ino --src /target/ -opass=$PASS,keyfile=$KEYFILE /mnt || exit 1
+
+echo "Backing up data:"
+
+rsync -av /source/ /target/
+
+echo "Closing vault:"
+fusermount -u /mnt/
+sleep 5
