@@ -12,13 +12,13 @@ PASS=`cat $PASSFILE`
 
 if [ ! -d "/target/dta" ]; then
 	echo "Creating vault:"
-	/cloudCryptFS.docker -osrc=/target/ -opass=$PASS,keyfile=$KEYFILE --create yes --log-level $LOGLEVEL || exit 1
+	/cloudCryptFS.docker -osrc=/target/ -opass="$PASS",keyfile="$KEYFILE" --create yes --log-level $LOGLEVEL || exit 1
 fi
 
 
 
 echo "Mounting vault:"
-/cloudCryptFS.docker -odirect_io,use_ino --src /target/ -opass=$PASS,keyfile=$KEYFILE /mnt || exit 1
+/cloudCryptFS.docker -odirect_io,use_ino --src /target/ -opass="$PASS",keyfile="$KEYFILE" /mnt || exit 1
 
 echo "Backing up data:"
 
