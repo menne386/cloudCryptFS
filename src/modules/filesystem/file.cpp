@@ -1041,6 +1041,11 @@ bool file::writeDirectoryContent (script::JSONPtr in,std::shared_ptr<journalEntr
 	}
 	
 	_ASSERT(swapContent(content,je)==true);
+	/*if(writeInner(reinterpret_cast<const uint8_t*>(&content[0]),content.size(),0,je)!=(int)content.size()) {
+		FS->srvERROR("Failed to write directory:",path);
+		return false;
+	}
+	truncateInner(content.size(),je);*/
 	rest(); 
 	
 	return true;

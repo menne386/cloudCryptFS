@@ -330,7 +330,9 @@ void bucket::addChange(std::shared_ptr<journalEntryWrapper> in) {
 			break;
 		} else {
 			STOR->srvWARNING("Too many changes for bucket: ",filenamebase);
-			store();
+			hashChangesSinceLoad++;
+			chunkChangesSinceLoad++;
+			store();//Storing here is the wrong way to handle this! Should make this list grow. if changes keep getting added to a log without actual changes, then we have an issue.
 		}
 	}
 }
