@@ -3,6 +3,9 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+echo '/target/core' > /proc/sys/kernel/core_pattern
+ulimit -c unlimited
+
 if [ ! -f "$PASSFILE" ]; then
 	echo "Provide a password in the $PASSFILE file"
 	exit 1
@@ -22,7 +25,7 @@ echo "Mounting vault:"
 
 echo "Backing up data:"
 
-rsync -av /source/ /mnt/
+rsync -auv /source/ /mnt/
 
 echo "Closing vault:"
 fusermount -u /mnt/

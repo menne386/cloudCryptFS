@@ -463,7 +463,7 @@ void file::loadHashes(void) {
 			}
 		}
 		if(numHashes) {
-			FS->srvWARNING(numHashes," missing hashes for file:",path);
+			FS->srvDEBUG(numHashes," missing hashes for file:",path);
 			FS->zeroHash()->incRefCnt(numHashes);
 		}
 		_ASSERT(hashList.updateRange(0,hashes)==true);
@@ -669,6 +669,9 @@ my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off
 	if(size % chunkSize>0) {
 		++numHashesInWrite;
 	}
+	if(offset % chunkSize >0 ) {
+		++numHashesInWrite;//There can be potentially 1 extra chunk requested if we do an unaligned write
+	}
 	
 	auto & fileSize = INode()->size;
 	if(fileSize<offset+originalSize) {
@@ -676,6 +679,9 @@ my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off
 	}
 	auto numHashes = fileSize/chunkSize;
 	if(fileSize % chunkSize >0) {
+		++numHashes;
+	}
+	if(offset % chunkSize >0 ) {
 		++numHashes;
 	}
 	if(numHashes!=hashList.getSize()) {
@@ -688,13 +694,14 @@ my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off
 		lckunique l(_mut,std::defer_lock);//unique lock for unaligned offset writes.
 		lckshared l2(_mut,std::defer_lock);//, and a shared lock for aligned writes.
 		if(offset % chunkSize >0 ){
-			FS->srvWARNING("Hitting slow path (unaligned write) for write to: ",path);
+			FS->srvDEBUG("Hitting slow path (unaligned write) for write to: ",path);
 			l.lock();
 		} else if(_mut.hasUniqueLock()==false) { //Do not try to lock shared if we already posses a unique lock.
 			l2.lock(); 
 		}
 		
 		auto hashes = hashList.getRange(firstHash,numHashesInWrite);
+		_ASSERT(hashes.size()==numHashesInWrite);
 		std::vector<shared_ptr<hash>> hashesToRemoveFromFile;
 		std::set<uint64_t> bucketsAffected;
 		for (auto & writeHash: hashes) {
@@ -702,6 +709,7 @@ my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off
 			if(offset < myFileOffset+ chunkSize && size > 0) {
 				auto newOffset = std::max(offset - myFileOffset, (my_off_t)0);//Determine the offset to start the read from.
 				auto newSize = std::min(size,(my_size_t)chunkSize-newOffset);
+				//FS->srvMESSAGE("offset:",offset," size:",size," newOffset:",newOffset," newSize:",newSize);
 				_ASSERT(newSize<=size);
 				auto newHsh = writeHash->write(newOffset,newSize,&buf[offsetInBuf]);
 				offsetInBuf += newSize;
@@ -714,9 +722,14 @@ my_off_t file::writeInner(const unsigned char * buf,my_size_t size, const my_off
 					writeHash = newHsh;
 				}
 				//_ASSERT(writeHash->getRefCnt()>0);
+			} else {
+				//FS->srvWARNING("???? offset < myFileOffset + chunkSize??",size," ",offset," ",myFileOffset);
 			}
 			myFileOffset += chunkSize;
 		}
+		/*if(size!=0) {
+			FS->srvERROR("Size not 0: s:",size,",o:",offset,",nh:",numHashesInWrite);
+		}*/
 		_ASSERT(size==0);
 		if(hashesToRemoveFromFile.empty()==false) {
 			FS->srvDEBUG("file::write: updating ",hashesToRemoveFromFile.size()," hashes");
@@ -855,6 +868,7 @@ bool file::rest() {
 			if(H->getRefCnt()<=0) {
 				FS->srvERROR("file::rest is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex());
 			}
+			_ASSERT(H->getRefCnt()>0);
 			if(H->rest()) {
 				++num;
 			}
