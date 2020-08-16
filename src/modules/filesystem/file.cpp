@@ -866,7 +866,7 @@ bool file::rest() {
 		for(auto & H:hashes) {
 			_ASSERT(H!=nullptr); //this HAPPENS, need to account for having empty hashes
 			if(H->getRefCnt()<=0) {
-				FS->srvERROR("file::rest is writing a reference to deleted hash: ",H->getHashStr(),H->getBucketIndex()," for: ",path);
+				FS->srvERROR("file::rest is writing a reference to deleted hash for: ",path,": ",H->getHashStr(),H->getBucketIndex());
 			}
 			_ASSERT(H->getRefCnt()>0);
 			if(H->rest()) {
