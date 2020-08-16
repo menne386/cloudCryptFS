@@ -926,7 +926,18 @@ my_err_t fs::hardlink(const char * linktarget,const char * linkname, const conte
 
 
 my_size_t fs::evictCache(const char * ipath) {
-	auto cacheList = inodeFileCache.list();
+	//auto it = inodeFileCache.find(ipath);
+	//@todo: should erase from cache all nodes under path
+	//@todo: current issue is that nodes may be dropped from cache that are still in an operation
+	/*auto inode = pathInodeCache.get(ipath);
+	if(inode) {
+		pathInodeCache.erase(ipath);
+		
+	}*/
+	
+	/* @todo: this implementation is wrong.
+	 * 
+	 * auto cacheList = inodeFileCache.list();
 	for(auto i: cacheList) {
 		i->rest();
 	}
@@ -935,7 +946,7 @@ my_size_t fs::evictCache(const char * ipath) {
 	inodeFileCache.clear();
 	
 	pathInodeCache.insert("/",rootIndex);
-	inodeFileCache.insert(rootIndex,root);
+	inodeFileCache.insert(rootIndex,root);*/
 	
 	return inodeFileCache.size();
 }
