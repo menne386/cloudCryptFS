@@ -37,6 +37,19 @@
 using namespace filesystem;
 using namespace script::SLT;
 
+
+filePtr permission::node() const {
+	if(auto f = F.lock()) {
+		return f;
+	}
+	return FS->inodeToFile(i,"{permission_temp}",nullptr);
+}
+
+permission::permission(filePtr _f): F(_f),i(_f->bucketIdx()) {
+	
+}
+
+
 file::file(specialFile intype):  extraMeta(script::make_json()), metaChunk(chunk::newChunk(0,nullptr)){
 	_type = intype;
 	refs.store(0); 
@@ -927,9 +940,10 @@ bool file::validate_access(const context * ctx,access da,access dda,bool checkSt
 	bool stickySet = false;
 	bool owndir = false;
 	for(const auto & p:pathPermissions) {
-		const auto u = p.uid == ctx->uid; 
-		const auto g = p.gid == ctx->gid;
-		const auto m = p.mode;
+		auto node = p.node();
+		const auto u = node->uid() == ctx->uid; 
+		const auto g = node->gid() == ctx->gid;
+		const auto m = node->mode();
 #ifndef _WIN32
 		if(checkStickyOwner == true && stickySet == false) {
 			if((m&mode::FLAG_SVTX) >0) {
@@ -953,10 +967,10 @@ bool file::validate_access(const context * ctx,access da,access dda,bool checkSt
 	}
 	if(dda!=access::NONE) {
 		if(pathPermissions.empty()==false) {
-
-			const auto u = pathPermissions.back().uid == ctx->uid; 
-			const auto g = pathPermissions.back().gid == ctx->gid;
-			const auto m = pathPermissions.back().mode;
+			auto node = pathPermissions.back().node();
+			const auto u = node->uid() == ctx->uid; 
+			const auto g = node->gid() == ctx->gid;
+			const auto m = node->mode();
 
 			//CLOG("Checking access to folder: ",m," :",(int)dda," sticky:",stickySet);
 			if(u) {

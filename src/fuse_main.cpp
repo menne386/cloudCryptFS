@@ -296,7 +296,6 @@ int chmod_callback (const char * path, my_mode_t mode) {
 		return error_to_fuse(e);
 	}
 
-	FS->srvDEBUG("Evict: ",FS->evictCache(path));
 	return 0;
 }
 
@@ -309,7 +308,6 @@ int chown_callback (const char * path, my_uid_t uid, my_gid_t gid) {
 	if(e) {
 		return error_to_fuse(e);
 	}
-	FS->srvDEBUG("Evict: ",FS->evictCache(path));
 	FS->srvDEBUG("CHOWN returns success!");
 	return 0;
 }

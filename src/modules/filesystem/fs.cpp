@@ -506,11 +506,7 @@ filePtr fs::get(const char * filename, my_err_t * errcode,const fileHandle H) {
 	
 	pathInodeCache.insert(filename,i);
 	std::vector<permission> pPerm = parentFile->getPathPermissions();
-	permission p;
-	p.gid = parentFile->gid();
-	p.mode = parentFile->mode();
-	p.uid = parentFile->uid();
-	pPerm.push_back(p);
+	pPerm.emplace_back(parentFile);
 		
 	return inodeToFile(i,filename,errcode,pPerm);
 
@@ -925,31 +921,6 @@ my_err_t fs::hardlink(const char * linktarget,const char * linkname, const conte
 
 
 
-my_size_t fs::evictCache(const char * ipath) {
-	//auto it = inodeFileCache.find(ipath);
-	//@todo: should erase from cache all nodes under path
-	//@todo: current issue is that nodes may be dropped from cache that are still in an operation
-	/*auto inode = pathInodeCache.get(ipath);
-	if(inode) {
-		pathInodeCache.erase(ipath);
-		
-	}*/
-	
-	/* @todo: this implementation is wrong.
-	 * 
-	 * auto cacheList = inodeFileCache.list();
-	for(auto i: cacheList) {
-		i->rest();
-	}
-	
-	pathInodeCache.clear();
-	inodeFileCache.clear();
-	
-	pathInodeCache.insert("/",rootIndex);
-	inodeFileCache.insert(rootIndex,root);*/
-	
-	return inodeFileCache.size();
-}
 
 
 str fs::getStats() {
@@ -1103,4 +1074,5 @@ str fs::getChildPath(const str & in) {
 	//parentname.erase(pos,str::npos);	
 	//return parentname;
 }
+
 

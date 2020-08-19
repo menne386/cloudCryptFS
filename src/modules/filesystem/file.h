@@ -38,10 +38,13 @@ namespace filesystem{
 		REGULAR,ERROR,STATS,METADATA
 	};
 
-	struct permission{
-		my_uid_t uid;
-		my_gid_t gid;
-		my_mode_t mode;
+	class permission{
+	private:
+		std::weak_ptr<file> F;
+		bucketIndex_t i;
+	public:
+		permission(filePtr _f);
+		filePtr node() const;
 	};
 	
 	class file {

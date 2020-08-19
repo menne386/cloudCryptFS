@@ -119,7 +119,6 @@ namespace filesystem{
 		my_err_t renamemove(const char * source, const char * destination, const context * ctx=nullptr);
 		my_err_t softlink(const char * linktarget,const char * linkname, const context * ctx=nullptr);
 		my_err_t hardlink(const char * linktarget,const char * linkname, const context * ctx=nullptr);
-		my_size_t evictCache(const char * ipath);
 		
 		void unloadBuckets(void);
 		
